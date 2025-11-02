@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 
 
 def safe_commit(db:Session, object:object) -> None:
+    """ Use this function to insert or update an object without needing the refreshed object back """
     try:
         db.add(object)
         db.commit()
@@ -17,6 +18,7 @@ def safe_commit(db:Session, object:object) -> None:
 
 
 def safe_commit_with_refresh(db:Session, object:object) -> object:
+    """ Use this function to insert or update an object and get the refreshed object back """
     try:
         db.add(object)
         db.commit()

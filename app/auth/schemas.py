@@ -42,10 +42,25 @@ class UserCreate(UserBase):
 
 
 class UserRead(BaseModel):
+    id:int
     name: str
     email: EmailStr
     country: str
     isactive: bool
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class UserUpdate(BaseModel):
+    name: str
+    email: EmailStr
+    
+    @field_validator("email",mode="before")
+    @classmethod
+    def format_email(cls, email) -> str:
+        return email.lower().strip()
 
 
 class UserLogin(BaseModel):

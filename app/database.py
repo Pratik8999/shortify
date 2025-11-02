@@ -3,20 +3,15 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from os import getenv
 
-load_dotenv()
+# Load .env file only if not running in Docker (where env vars are passed directly)
+load_dotenv(override=False)
 
 # Below method for creating db connection with most commonly used connection parameters
 # rather than all things in single connection string.
-url_object = URL.create(
-    drivername="postgresql",
-    host=getenv('DB_HOST'),
-    username=getenv('DB_USER'),
-    password=getenv('DB_PASSWORD'),
-    database=getenv('DB_NAME'),
-    port=getenv('DB_PORT')
-)
 
-engine = create_engine(url=url_object)
+db_url = getenv("DB_URL")
+
+engine = create_engine(url=db_url, echo=True)
 
 db_connection = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

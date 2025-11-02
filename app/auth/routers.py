@@ -3,12 +3,15 @@ from app.database import get_db
 from fastapi import Depends,HTTPException,Request
 from sqlalchemy.orm import Session
 from app.db_utils import safe_commit,safe_commit_with_refresh
-from app.auth.schemas import (UserCreate, UserBase, LoginConfirmation, UserLogin, AccessToken, RefreshToken)
+from app.auth.schemas import (UserCreate, UserRead, LoginConfirmation, UserLogin, AccessToken, RefreshToken, UserUpdate)
 from app.auth.hashing import (hash_password, verify_password)
 from app.auth.jwt_handler import (create_access_token, create_refresh_token, verify_token, invalidate_token)
 from app.models import User
-from sqlalchemy.orm import lazyload,load_only
+from sqlalchemy.orm import load_only
 from fastapi.security import OAuth2PasswordBearer
+from app.auth.dependencies import get_current_user
+from sqlalchemy.exc import IntegrityError
+
 
 
 auth_router = APIRouter(tags=["Authentication"],prefix="/user")
@@ -70,7 +73,7 @@ def refresh_token(refresh_token: RefreshToken, db: Session = Depends(get_db)):
 def logout(body: dict, db: Session = Depends(get_db), access_token: str = Depends(oauth2_scheme)):
     try:
         if invalidate_token(access_token,body.get('refresh_token',None),db):
-            return True
+            return {"message": "Successfully logged out."}
         else:
             print("Failed to invalidate tokens during logout")
             raise HTTPException(status_code=400, detail="Invalid or expired token")
@@ -78,3 +81,22 @@ def logout(body: dict, db: Session = Depends(get_db), access_token: str = Depend
     except Exception as ex:
         print("Got unexpected exception during logout:", str(ex))
         raise HTTPException(status_code=400, detail="Invalid or expired token")
+    
+
+@auth_router.get("/profile", response_model=UserRead)
+def get_profile(user:User = Depends(get_current_user)):
+    return user
+
+
+@auth_router.put("/profile", response_model=UserRead)
+def update_profile(user_update:UserUpdate, user:User = Depends(get_current_user), db:Session = Depends(get_db)):
+    try:
+        user.name = user_update.name
+        user.email = user_update.email
+        
+        updated_user = safe_commit_with_refresh(db, user)
+        return updated_user
+    
+    except IntegrityError as ie:
+        print(f"Type of ie:{type(ie)} | Message DETAIL: {ie.orig.diag.message_detail}")
+        raise HTTPException(status_code=400, detail=str(ie.orig.diag.message_detail)) 
