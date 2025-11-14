@@ -30,7 +30,7 @@ class Url(TimeStamp):
     __tablename__ = "url"
     id = Column(BigInteger, nullable=False, primary_key=True, autoincrement=True)
     url = Column(Text, nullable=False)
-    code = Column(VARCHAR(20), nullable=False, unique=True, index=True)
+    code = Column(VARCHAR(20), index=True, nullable=True)
     user = Column(Integer,ForeignKey("user.id",onupdate="CASCADE",ondelete="CASCADE"), nullable=True, index=True)
     click_count = Column(Integer, nullable=True, default=0)   
     expires_at = Column(DateTime(timezone=True), nullable=True)
@@ -45,11 +45,16 @@ class UrlAnalytics(TimeStamp):
 
     id = Column(BigInteger, nullable=False, primary_key=True, autoincrement=True)
     url = Column(Integer,ForeignKey("url.id",onupdate="CASCADE",ondelete="CASCADE"), nullable=False, index=True)
-    user = Column(Integer,ForeignKey("user.id",onupdate="CASCADE",ondelete="CASCADE"), nullable=True, index=True)
+    
+    ip_address = Column(VARCHAR(64), nullable=True)
     country = Column(VARCHAR(50), nullable=True)
+    referrer = Column(Text, nullable=True)
+    device = Column(VARCHAR(30), nullable=True)
+    browser = Column(VARCHAR(30), nullable=True)
+    os = Column(VARCHAR(30), nullable=True)
+    user_agent = Column(Text, nullable=True)
 
     url_ref = relationship("Url", back_populates="analytics")
-    user_ref = relationship("User")
 
 
 

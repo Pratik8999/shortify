@@ -14,8 +14,8 @@ from sqlalchemy.exc import IntegrityError
 
 
 
-auth_router = APIRouter(tags=["Authentication"],prefix="/user")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
+auth_router = APIRouter(tags=["Authentication"],prefix="/api/auth")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 @auth_router.post("/register", response_model=LoginConfirmation, status_code=201)
