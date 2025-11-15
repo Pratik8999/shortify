@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl
-from typing import Optional
+from typing import Optional,List
 from app.models import UrlAnalytics
 from datetime import datetime
 
@@ -33,3 +33,20 @@ class UrlAnalyticsCreate(BaseModel):
     browser: Optional[str] = None
     os: Optional[str] = None
     user_agent: Optional[str] = None
+
+
+class Pagination(BaseModel):
+    current_page: int
+    next_page: int | None
+    prev_page: int | None
+    total_pages: int
+    total_items: int
+
+class PaginatedUrlResponse(BaseModel):
+    data: list[UrlListingResponse]
+    pagination: Pagination
+    
+
+class PaginatedURLs(BaseModel):
+    data: List[UrlListingResponse]
+    pagination: Pagination
