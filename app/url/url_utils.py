@@ -4,7 +4,8 @@ from app.db_utils import safe_commit, safe_commit_with_refresh
 from sqlalchemy.orm import Session,load_only
 from app.models import Url,UrlAnalytics
 from user_agents import parse as parse_ua
-
+from app.auth.dependencies import (get_country_by_ip)
+from app.database import db_connection
 
 hash = Hashids(min_length=8, salt=getenv("SALT"))
 
@@ -38,15 +39,14 @@ def create_short_url(db:Session, user_id:int, original_url:str) -> tuple[str, bo
 
 
 def add_url_analytics(
-    db: Session,
     url_id: int,
     ip_address: str,
     referrer: str,
-    user_agent: str,
-    country: str | None = None
+    user_agent: str
 ):
     """Create analytics record for a given short URL visit."""
-    
+    db = db_connection()
+
     # Validate URL exists
     url_obj = db.query(Url).options(load_only(
                 Url.id,Url.click_count)).filter(Url.id == url_id).first()
@@ -54,6 +54,10 @@ def add_url_analytics(
     if not url_obj:
         return False
     
+    # Get country from IP
+    country= get_country_by_ip(ip_address)
+    
+    # print(f"Country is: {country}")
     # Parse device/browser/os from UA
     ua = parse_ua(user_agent) if user_agent else None
     

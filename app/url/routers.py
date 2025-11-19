@@ -1,14 +1,15 @@
 from fastapi.routing import APIRouter
-from fastapi import Depends,Response,Request,Query
+from fastapi import Depends,Response,Request,Query,BackgroundTasks
 from fastapi.responses import RedirectResponse
 import json
 from app.auth.dependencies import (get_current_user)
-from app.models import (User, Url, UrlAnalytics)
-from app.url.schemas import (UrlCreate, UrlListingResponse,UrlAnalyticsCreate, Pagination, PaginatedUrlResponse,PaginatedURLs)
+from app.models import (User, Url)
+from app.url.schemas import (UrlCreate, UrlAnalyticsCreate, Pagination, PaginatedUrlResponse)
 from app.database import get_db
 from app.url.url_utils import (create_short_url,add_url_analytics)
 from sqlalchemy.orm import Session,load_only
 from app.db_utils import safe_delete
+
 
 
 url_router = APIRouter(tags=["URLs"], prefix="/api/url-shortner")
@@ -65,22 +66,37 @@ def get_urls_for_user(db:Session = Depends(get_db), user:User = Depends(get_curr
     )
 
 @url_router.get("/{url_code}")
-def redirect_response(url_code:str, request:Request, db:Session = Depends(get_db)):
+def redirect_response(url_code:str, request:Request, background_tasks: BackgroundTasks,
+                       db:Session = Depends(get_db)):
 
     # Check if the incoming url code exists in the database
     url = (db.query(Url).options(load_only(Url.id, Url.url, Url.code))
            .filter(Url.code == url_code).first() 
            )
-    ip = request.client.host
+    
     if not url:
         return Response(content=json.dumps({"message": "URL not found."}), media_type="application/json", status_code=404)
     
     # Now if the url found then return the original url for redirection with 307 temporary redirect as
     # we intentionally use 307 for temporary redirection so that everytime user's first visit is recorded in analytics
     # as 307 redirect does not cache the redirection unlike 301 permanent redirect
-    print(f"Got Request from ip:{ip} to redirect to url code: {url_code}")
 
-    return RedirectResponse(url.url, status_code=301)
+    ip = request.client.host
+    referrer = request.headers.get("referer")
+    user_agent = request.headers.get("user-agent")
+    
+    print(f"Got Request from ip:{ip} to redirect to url code: {url_code}")
+    
+    # Registering background task to add analytics
+    background_tasks.add_task(
+        add_url_analytics,
+        url_id=url.id,
+        ip_address=ip,
+        referrer=referrer,
+        user_agent=user_agent,
+    )
+
+    return RedirectResponse(url.url, status_code=307)
 
 
 
@@ -98,41 +114,40 @@ def delete_url(url_code:str, db:Session = Depends(get_db), user:User = Depends(g
 
 
 
-@url_router.post("/analytics")
-def post_url_analytics(
-    analytics_data: UrlAnalyticsCreate,
-    request: Request,
-    db: Session = Depends(get_db)
-):
+# @url_router.post("/analytics")
+# def post_url_analytics(
+#     analytics_data: UrlAnalyticsCreate,
+#     request: Request,
+#     db: Session = Depends(get_db)
+# ):
 
-    # Extract client-side metadata
-    ip_address = request.client.host
-    referrer = request.headers.get("referer")
-    user_agent = request.headers.get("user-agent")
+#     # Extract client-side metadata
+#     ip_address = request.client.host
+#     referrer = request.headers.get("referer")
+#     user_agent = request.headers.get("user-agent")
 
-    print(f"Recording analytics for URL ID: {analytics_data.url_id} from IP: {ip_address}")
+#     print(f"Recording analytics for URL ID: {analytics_data.url_id} from IP: {ip_address}")
 
-    # Country will come from analytics_data (optional)
-    country = analytics_data.country
+#     # Country will come from analytics_data (optional)
+#     country = analytics_data.country
 
-    success = add_url_analytics(
-        db=db,
-        url_id=analytics_data.url_id,
-        ip_address=ip_address,
-        referrer=referrer,
-        user_agent=user_agent,
-        country=country
-    )
+#     success = add_url_analytics(
+#         db=db,
+#         url_id=analytics_data.url_id,
+#         ip_address=ip_address,
+#         referrer=referrer,
+#         user_agent=user_agent
+#     )
 
-    if not success:
-        return Response(
-            content=json.dumps({"message": "URL not found"}),
-            status_code=404,
-            media_type="application/json"
-        )
+#     if not success:
+#         return Response(
+#             content=json.dumps({"message": "URL not found"}),
+#             status_code=404,
+#             media_type="application/json"
+#         )
 
-    return Response(
-        content=json.dumps({"message": "Analytics recorded"}),
-        status_code=201,
-        media_type="application/json"
-    )
+#     return Response(
+#         content=json.dumps({"message": "Analytics recorded"}),
+#         status_code=201,
+#         media_type="application/json"
+#     )
