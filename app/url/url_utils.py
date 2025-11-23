@@ -6,6 +6,8 @@ from app.models import Url,UrlAnalytics
 from user_agents import parse as parse_ua
 from app.auth.dependencies import (get_country_by_ip)
 from app.database import db_connection
+from app.redis_client import get_redis_client
+
 
 hash = Hashids(min_length=8, salt=getenv("SALT"))
 
@@ -39,7 +41,7 @@ def create_short_url(db:Session, user_id:int, original_url:str) -> tuple[str, bo
 
 
 def add_url_analytics(
-    url_id: int,
+    url_code: int,
     ip_address: str,
     referrer: str,
     user_agent: str
@@ -49,7 +51,7 @@ def add_url_analytics(
 
     # Validate URL exists
     url_obj = db.query(Url).options(load_only(
-                Url.id,Url.click_count)).filter(Url.id == url_id).first()
+                Url.id,Url.click_count)).filter(Url.code == url_code).first()
     
     if not url_obj:
         return False
@@ -62,7 +64,7 @@ def add_url_analytics(
     ua = parse_ua(user_agent) if user_agent else None
     
     analytics = UrlAnalytics(
-        url=url_id,
+        url=url_obj.id,
         ip_address=ip_address,
         referrer=referrer,
         country=country,
@@ -79,3 +81,10 @@ def add_url_analytics(
     safe_commit(db, url_obj)
 
     return True
+
+
+
+def async_cache_fill(code: str, original_url: str):
+    redis_client = get_redis_client()
+    redis_client.set(code, original_url,ex=60*60*48)  # Cache for 48 hours
+    print(f"[CACHE FILLED] {code} → {original_url}")
