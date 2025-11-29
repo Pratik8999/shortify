@@ -28,7 +28,7 @@ def url_shortner(url_create:UrlCreate, user:User = Depends(get_current_user), db
     else:
         return Response(content=json.dumps({"short_code": short_code,
                                             "message": "URL already exists."}
-                                            ), media_type="application/json", status_code=200)
+                                            ), media_type="application/json", status_code=400)
 
 
 @url_router.get("/", response_model=PaginatedUrlResponse)
@@ -64,64 +64,6 @@ def get_urls_for_user(db:Session = Depends(get_db), user:User = Depends(get_curr
         data=urls,
         pagination=pagination
     )
-
-
-@url_router.get("/{url_code}")
-def redirect_response(url_code:str, request:Request, background_tasks: BackgroundTasks,
-                       db:Session = Depends(get_db)):
-
-    ip = request.client.host
-    referrer = request.headers.get("referer")
-    user_agent = request.headers.get("user-agent")
-
-    # First check in redis for the url code, if found return the url from redis cache
-    redis_client = get_redis_client()
-
-    cached_url = redis_client.get(url_code)
-
-    if cached_url:
-        print(f"[CACHE HIT] url_code={url_code} → {cached_url}")
-
-        background_tasks.add_task(
-            add_url_analytics,
-            url_code=url_code,
-            ip_address=ip,
-            referrer=referrer,
-            user_agent=user_agent,
-        )
-        return RedirectResponse(cached_url, status_code=307)
-    
-    else:
-        print(f"[CACHE MISS] url_code={url_code}")
-        
-        # Check if the incoming url code exists in the database
-        url = db.query(Url.url, Url.code).filter(Url.code == url_code).first()
-
-        if not url:
-            return Response(content=json.dumps({"message": "URL not found."}), media_type="application/json", status_code=404)
-        
-        # Asynchronously fill the cache
-        background_tasks.add_task(
-            async_cache_fill,
-            code=url_code,
-            original_url=url.url
-        )
-
-        # Now if the url found then return the original url for redirection with 307 temporary redirect as
-        # we intentionally use 307 for temporary redirection so that everytime user's first visit is recorded in analytics
-        # as 307 redirect does not cache the redirection unlike 301 permanent redirect
-
-        # Registering background task to add analytics
-        background_tasks.add_task(
-            add_url_analytics,
-            url_code=url_code,
-            ip_address=ip,
-            referrer=referrer,
-            user_agent=user_agent,
-        )
-
-        return RedirectResponse(url.url, status_code=307)
-
 
 
 @url_router.delete("/{url_code}")

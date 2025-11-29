@@ -2,6 +2,8 @@ from pydantic import BaseModel, HttpUrl
 from typing import Optional,List
 from app.models import UrlAnalytics
 from datetime import datetime
+from pydantic import validator
+from pydantic import field_validator
 
 
 class UrlCreate(BaseModel):
@@ -14,10 +16,15 @@ class UrlCreationResponse(BaseModel):
 
 
 class UrlListingResponse(BaseModel):
-    id:int
-    url:HttpUrl
-    code:str
-    createdon:datetime
+    id: int
+    url: HttpUrl
+    code: str
+    createdon: int
+
+
+    @field_validator("createdon", mode="before")
+    def _dt_to_unix(cls, v):
+        return int(v.timestamp())
 
     class Config:
         from_attributes = True
