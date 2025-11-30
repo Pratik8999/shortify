@@ -57,3 +57,16 @@ class PaginatedUrlResponse(BaseModel):
 class PaginatedURLs(BaseModel):
     data: List[UrlListingResponse]
     pagination: Pagination
+
+
+class UrlBulkDelete(BaseModel):
+    url_codes: List[str]
+    
+    @field_validator("url_codes")
+    @classmethod
+    def validate_url_codes(cls, v):
+        if not v:
+            raise ValueError("At least one URL code must be provided")
+        if len(v) > 100:  # Reasonable limit
+            raise ValueError("Cannot delete more than 100 URLs at once")
+        return v

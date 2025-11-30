@@ -1,15 +1,13 @@
 from fastapi.routing import APIRouter
-from fastapi import Depends,Response,Request,Query,BackgroundTasks
-from fastapi.responses import RedirectResponse
+from fastapi import Depends,Response,Query,BackgroundTasks
 import json
 from app.auth.dependencies import (get_current_user)
 from app.models import (User, Url)
-from app.url.schemas import (UrlCreate, UrlAnalyticsCreate, Pagination, PaginatedUrlResponse)
+from app.url.schemas import (UrlCreate, Pagination, PaginatedUrlResponse, 
+                            UrlBulkDelete)
 from app.database import get_db
-from app.url.url_utils import (create_short_url,add_url_analytics, async_cache_fill)
+from app.url.url_utils import (create_short_url,add_url_analytics, async_cache_fill, invalidate_cache)
 from sqlalchemy.orm import Session,load_only
-from app.db_utils import safe_delete
-from app.redis_client import get_redis_client
 
 
 url_router = APIRouter(tags=["URLs"], prefix="/api/url-shortner")
@@ -66,14 +64,37 @@ def get_urls_for_user(db:Session = Depends(get_db), user:User = Depends(get_curr
     )
 
 
-@url_router.delete("/{url_code}")
-def delete_url(url_code:str, db:Session = Depends(get_db), user:User = Depends(get_current_user)):
+@url_router.post("/delete")
+def delete_urls(bulk_delete: UrlBulkDelete, background_tasks: BackgroundTasks,
+               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """
+    Delete one or multiple URLs by their codes.
+    Highly optimized with single query and bulk deletion.
+    Works for both single URL and multiple URLs.
+    """
+    url_codes = bulk_delete.url_codes
     
-    url = db.query(Url).options(load_only(Url.id)).filter(Url.code == url_code, Url.user == user.id).first()
-    
-    if not url:
-        return Response(content=json.dumps({"message": "URL not found."}), media_type="application/json", status_code=404)
-    
-    safe_delete(db, url)
+    try:
+        # Optimized query - only fetch codes we need to verify
+        existing_urls = db.query(Url).options(load_only(Url.code)).filter(
+            Url.code.in_(url_codes),
+            Url.user == user.id
+        ).all()
+        
+        existing_codes = [url.code for url in existing_urls]
+        
+        db.query(Url).filter(
+            Url.code.in_(url_codes),
+            Url.user == user.id
+        ).delete(synchronize_session=False)
 
-    return Response(content=json.dumps({"message": "URL deleted successfully."}), media_type="application/json", status_code=200)
+        db.commit()
+        
+        # Add cache invalidation to background task
+        background_tasks.add_task(invalidate_cache, existing_codes)
+        
+        return Response(json.dumps({"message":"URLs deleted successfully."}), media_type="application/json", status_code=200)
+        
+    except Exception as e:
+        print(f"URL deletion failed: {str(e)}")
+        return Response(json.dumps({"message":"URL deletion failed."}), media_type="application/json", status_code=500)

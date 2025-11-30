@@ -88,3 +88,16 @@ def async_cache_fill(code: str, original_url: str):
     redis_client = get_redis_client()
     redis_client.set(code, original_url,ex=60*60*48)  # Cache for 48 hours
     print(f"[CACHE FILLED] {code} → {original_url}")
+
+
+def invalidate_cache(url_codes: list[str]):
+    """Remove URL codes from Redis cache"""
+    try:
+        redis_client = get_redis_client()
+        if url_codes:
+            deleted_keys = redis_client.delete(*url_codes)
+            print(f"[CACHE INVALIDATED] Removed {deleted_keys} keys from cache")
+        return True
+    except Exception as e:
+        print(f"[CACHE INVALIDATION ERROR] {str(e)}")
+        return False

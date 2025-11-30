@@ -15,7 +15,6 @@ ENV PATH="/root/.local/bin:/root/.cargo/bin:${PATH}"
 WORKDIR /URL_Shortener 
 
 # Copy everything into container 
-
 COPY . . 
 
 # Install dependencies using uv
@@ -33,4 +32,4 @@ ENTRYPOINT ["./entrypoint.sh"]
 
 # Start FastAPI app using uvicorn 
 
-CMD ["uv", "run", "fastapi", "run", "--app", "app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
