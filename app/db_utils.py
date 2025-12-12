@@ -32,3 +32,14 @@ def safe_commit_with_refresh(db:Session, object:object) -> object:
     except Exception as e:
         db.rollback()
         raise e
+
+
+def safe_delete(db:Session, object:object) -> None:
+    """ Use this function to delete an object safely """
+    try:
+        db.delete(object)
+        db.commit()
+    
+    except Exception as e:
+        db.rollback()
+        raise e
