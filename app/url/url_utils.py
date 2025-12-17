@@ -3,7 +3,7 @@ from os import getenv
 from app.db_utils import safe_commit, safe_commit_with_refresh
 from sqlalchemy.orm import Session,load_only
 from app.models import Url,UrlAnalytics
-from user_agents import parse as parse_ua
+from ua_parser import user_agent_parser
 from app.auth.dependencies import (get_country_by_ip)
 from app.database import db_connection
 from app.redis_client import get_redis_client
@@ -59,26 +59,82 @@ def add_url_analytics(
     # Get country from IP
     country= get_country_by_ip(ip_address)
     
-    # print(f"Country is: {country}")
-    # Parse device/browser/os from UA
-    ua = parse_ua(user_agent) if user_agent else None
+    # Parse device/browser/os from UA using ua-parser
+    device_type = None
+    browser_name = None
+    os_name = None
+    is_bot = False
+    
+    if user_agent:
+        parsed = user_agent_parser.Parse(user_agent)
+        
+        # Extract browser
+        browser_family = parsed.get('user_agent', {}).get('family')
+        browser_name = browser_family if browser_family != 'Other' else None
+        
+        # Extract OS
+        os_family = parsed.get('os', {}).get('family')
+        os_name = os_family if os_family != 'Other' else None
+        
+        # Extract and categorize device
+        device_family = parsed.get('device', {}).get('family')
+        ua_lower = user_agent.lower()
+        
+        # Bot detection logic
+        bot_indicators = [
+            'bot', 'crawler', 'spider', 'scraper', 'whatsapp', 'telegram',
+            'facebook', 'twitter', 'linkedin', 'slack', 'discord', 'instagram',
+            'snapchat', 'preview', 'fetcher', 'validator', 'checker'
+        ]
+        
+        # Check if it's a bot
+        is_bot = (
+            device_family == 'Spider' or
+            device_type == 'Spider' or
+            (browser_name and any(indicator in browser_name.lower() for indicator in bot_indicators)) or
+            any(indicator in ua_lower for indicator in bot_indicators)
+        )
+        
+        # Categorize device type properly
+        # Check for specific known devices first (iPhone, iPad, etc.)
+        if device_family and device_family not in ['Other', 'K']:
+            device_type = device_family
+        # Handle Android "K" privacy placeholder and infer from OS/UA
+        elif os_family in ['iOS', 'Android', 'Windows Phone', 'BlackBerry OS']:
+            # Mobile OS detected
+            if 'tablet' in ua_lower or 'ipad' in ua_lower:
+                device_type = 'Tablet'
+            else:
+                device_type = 'Mobile'
+        # Desktop OS detection
+        elif os_family in ['Windows', 'Mac OS X', 'Linux', 'Ubuntu', 'Chrome OS']:
+            device_type = 'Desktop'
+        # Fallback: check UA string patterns
+        elif 'mobile' in ua_lower or 'android' in ua_lower:
+            device_type = 'Mobile'
+        elif 'tablet' in ua_lower:
+            device_type = 'Tablet'
+        else:
+            device_type = 'Unknown'
     
     analytics = UrlAnalytics(
         url=url_obj.id,
         ip_address=ip_address,
         referrer=referrer,
         country=country,
-        device=ua.device.family if ua else None,
-        browser=ua.browser.family if ua else None,
-        os=ua.os.family if ua else None,
-        user_agent=user_agent
+        device=device_type,
+        browser=browser_name,
+        os=os_name,
+        user_agent=user_agent,
+        is_bot=is_bot
     )
 
     safe_commit(db, analytics)
 
-    # increment click count
-    url_obj.click_count += 1
-    safe_commit(db, url_obj)
+    # Only increment click count for real users, not bots
+    if not is_bot:
+        url_obj.click_count += 1
+        safe_commit(db, url_obj)
 
     return True
 
