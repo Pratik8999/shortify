@@ -9,6 +9,7 @@ from app.database import db_connection
 from app.redis_client import get_redis_client
 from sqlalchemy import func
 from urllib.parse import urlparse
+from datetime import datetime, timezone
 
 
 hash = Hashids(min_length=8, salt=getenv("SALT"))
@@ -93,12 +94,14 @@ def add_url_analytics(
     """Create analytics record for a given short URL visit."""
     db = db_connection()
 
-    # Validate URL exists
+    # Validate URL exists and get user_id
     url_obj = db.query(Url).options(load_only(
-                Url.id,Url.click_count)).filter(Url.code == url_code).first()
+                Url.id,Url.click_count,Url.user)).filter(Url.code == url_code).first()
     
     if not url_obj:
         return False
+    
+    user_id = url_obj.user
     
     # Get country from IP
     country= get_country_by_ip(ip_address)
@@ -140,8 +143,12 @@ def add_url_analytics(
         )
         
         # Categorize device type properly
-        # Check for specific known devices first (iPhone, iPad, etc.)
-        if device_family and device_family not in ['Other', 'K']:
+        # Check for bots/spiders first
+        if device_family == 'Spider':
+            device_type = 'Spider'
+        # Check for specific known devices (iPhone, iPad, etc.)
+        elif device_family in ['iPhone', 'iPad']:
+            # Keep iPhone and iPad as specific types
             device_type = device_family
         # Handle Android "K" privacy placeholder and infer from OS/UA
         elif os_family in ['iOS', 'Android', 'Windows Phone', 'BlackBerry OS']:
@@ -186,6 +193,7 @@ def add_url_analytics(
     # Update Redis analytics cache
     update_analytics_cache(
         url_id=url_obj.id,
+        user_id=user_id,
         country=country,
         device=device_type,
         source_category=source_category,
@@ -202,20 +210,30 @@ def async_cache_fill(code: str, original_url: str):
     print(f"[CACHE FILLED] {code} → {original_url}")
 
 
-def update_analytics_cache(url_id: int, country: str, device: str, source_category: str, is_bot: bool):
+def update_analytics_cache(url_id: int, user_id: int, country: str, device: str, source_category: str, is_bot: bool):
     """Update Redis analytics cache with new data"""
     try:
         redis_client = get_redis_client()
         
         # Only update cache for real users, not bots
         if not is_bot:
-            # Global analytics
+            # Increment total click count for this URL
+            redis_client.incr(f"analytics:url:{url_id}:total_clicks")
+            
+            # Increment user-specific global total clicks
+            redis_client.incr(f"analytics:user:{user_id}:global:total_clicks")
+            
+            # Increment this month's clicks (key format: analytics:user:{user_id}:global:month:YYYY-MM)
+            current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+            redis_client.incr(f"analytics:user:{user_id}:global:month:{current_month}")
+            
+            # User-specific global analytics
             if country:
-                redis_client.hincrby("analytics:global:countries", country, 1)
+                redis_client.hincrby(f"analytics:user:{user_id}:global:countries", country, 1)
             if device:
-                redis_client.hincrby("analytics:global:devices", device, 1)
+                redis_client.hincrby(f"analytics:user:{user_id}:global:devices", device, 1)
             if source_category:
-                redis_client.hincrby("analytics:global:sources", source_category, 1)
+                redis_client.hincrby(f"analytics:user:{user_id}:global:sources", source_category, 1)
             
             # Per-URL analytics
             if country:
@@ -225,10 +243,10 @@ def update_analytics_cache(url_id: int, country: str, device: str, source_catego
             if source_category:
                 redis_client.hincrby(f"analytics:url:{url_id}:sources", source_category, 1)
         
-        # Track bot sources separately
+        # Track bot sources separately (user-specific)
         else:
             if source_category:
-                redis_client.hincrby("analytics:global:bot_sources", source_category, 1)
+                redis_client.hincrby(f"analytics:user:{user_id}:global:bot_sources", source_category, 1)
         
         return True
     except Exception as e:
@@ -269,6 +287,7 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
             countries = redis_client.hgetall(f"analytics:url:{url.id}:countries")
             devices = redis_client.hgetall(f"analytics:url:{url.id}:devices")
             sources = redis_client.hgetall(f"analytics:url:{url.id}:sources")
+            cached_clicks = redis_client.get(f"analytics:url:{url.id}:total_clicks")
             
             # If Redis is empty, then fallback to DB query
             if not countries and not devices and not sources:
@@ -304,14 +323,20 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
                     source_cat = categorize_referrer(row.referrer)
                     redis_client.hincrby(f"analytics:url:{url.id}:sources", source_cat, row.count)
                 
+                # Store total click count in Redis
+                redis_client.set(f"analytics:url:{url.id}:total_clicks", url.click_count)
+                
                 # Re-fetch from Redis
                 countries = redis_client.hgetall(f"analytics:url:{url.id}:countries")
                 devices = redis_client.hgetall(f"analytics:url:{url.id}:devices")
                 sources = redis_client.hgetall(f"analytics:url:{url.id}:sources")
+                cached_clicks = redis_client.get(f"analytics:url:{url.id}:total_clicks")
             
             print(f"[REDIS HIT] Analytics cache hit for URL ID {url.id}")
-            # Convert Redis bytes to dict and calculate percentages
-            total_clicks = url.click_count or 1  # Avoid division by zero
+            
+            # Use cached click count if available, otherwise fallback to DB
+            total_clicks = int(cached_clicks) if cached_clicks else url.click_count
+            total_clicks = total_clicks or 1  # Avoid division by zero
             
             countries_data = [
                 {
@@ -358,3 +383,145 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
     except Exception as e:
         print(f"[ERROR] get_top_performing_urls: {e}")
         return []
+
+
+def get_global_analytics(db: Session, user_id: int):
+    """Get global analytics across all user's URLs"""
+    try:
+        redis_client = get_redis_client()
+        
+        # Get data from Redis (user-specific)
+        countries = redis_client.hgetall(f"analytics:user:{user_id}:global:countries")
+        devices = redis_client.hgetall(f"analytics:user:{user_id}:global:devices")
+        sources = redis_client.hgetall(f"analytics:user:{user_id}:global:sources")
+        total_clicks = redis_client.get(f"analytics:user:{user_id}:global:total_clicks")
+        current_month = datetime.now(timezone.utc).strftime("%Y-%m")
+        this_month_clicks = redis_client.get(f"analytics:user:{user_id}:global:month:{current_month}")
+        
+        # If cache is empty, rebuild from database
+        if not countries and not devices and not sources:
+            print("[REDIS MISS] Global analytics cache miss, rebuilding from DB")
+            
+            # Query all analytics for this user's URLs (excluding bots)
+            analytics_query = (
+                db.query(UrlAnalytics)
+                .join(Url, UrlAnalytics.url == Url.id)
+                .filter(Url.user == user_id, UrlAnalytics.is_bot == False)
+            )
+            
+            # Rebuild countries
+            country_data = (
+                analytics_query
+                .with_entities(UrlAnalytics.country, func.count(UrlAnalytics.id).label('count'))
+                .group_by(UrlAnalytics.country)
+                .all()
+            )
+            for row in country_data:
+                if row.country:
+                    redis_client.hincrby(f"analytics:user:{user_id}:global:countries", row.country, row.count)
+            
+            # Rebuild devices
+            device_data = (
+                analytics_query
+                .with_entities(UrlAnalytics.device, func.count(UrlAnalytics.id).label('count'))
+                .group_by(UrlAnalytics.device)
+                .all()
+            )
+            for row in device_data:
+                if row.device:
+                    redis_client.hincrby(f"analytics:user:{user_id}:global:devices", row.device, row.count)
+            
+            # Rebuild sources
+            source_data = (
+                analytics_query
+                .with_entities(UrlAnalytics.referrer, func.count(UrlAnalytics.id).label('count'))
+                .group_by(UrlAnalytics.referrer)
+                .all()
+            )
+            source_counts = {}
+            for row in source_data:
+                source_cat = categorize_referrer(row.referrer)
+                source_counts[source_cat] = source_counts.get(source_cat, 0) + row.count
+            
+            for source_cat, count in source_counts.items():
+                redis_client.hincrby(f"analytics:user:{user_id}:global:sources", source_cat, count)
+            
+            # Rebuild total clicks
+            total_clicks_db = db.query(func.sum(Url.click_count)).filter(Url.user == user_id).scalar() or 0
+            redis_client.set(f"analytics:user:{user_id}:global:total_clicks", total_clicks_db)
+            
+            # Rebuild this month's clicks
+            month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            this_month_clicks_db = (
+                analytics_query
+                .filter(UrlAnalytics.createdon >= month_start)
+                .count()
+            )
+            redis_client.set(f"analytics:user:{user_id}:global:month:{current_month}", this_month_clicks_db)
+            
+            # Re-fetch from Redis
+            countries = redis_client.hgetall(f"analytics:user:{user_id}:global:countries")
+            devices = redis_client.hgetall(f"analytics:user:{user_id}:global:devices")
+            sources = redis_client.hgetall(f"analytics:user:{user_id}:global:sources")
+            total_clicks = redis_client.get(f"analytics:user:{user_id}:global:total_clicks")
+            this_month_clicks = redis_client.get(f"analytics:user:{user_id}:global:month:{current_month}")
+        
+        print("[REDIS HIT] Global analytics cache hit")
+        
+        # Get total URLs count (always from DB as it's fast)
+        total_urls = db.query(Url).filter(Url.user == user_id).count()
+        
+        # Convert to usable format
+        total_clicks_count = int(total_clicks) if total_clicks else 0
+        this_month_count = int(this_month_clicks) if this_month_clicks else 0
+        
+        # Convert Redis data and calculate percentages
+        countries_data = [
+            {
+                "country": k.decode() if isinstance(k, bytes) else k,
+                "percentage": round((int(v) / total_clicks_count) * 100) if total_clicks_count > 0 else 0,
+                "count": int(v)
+            }
+            for k, v in countries.items()
+        ]
+        countries_data.sort(key=lambda x: x['count'], reverse=True)
+        
+        devices_data = [
+            {
+                "device": k.decode() if isinstance(k, bytes) else k,
+                "percentage": round((int(v) / total_clicks_count) * 100) if total_clicks_count > 0 else 0,
+                "count": int(v)
+            }
+            for k, v in devices.items()
+        ]
+        devices_data.sort(key=lambda x: x['count'], reverse=True)
+        
+        sources_data = [
+            {
+                "source": k.decode() if isinstance(k, bytes) else k,
+                "percentage": round((int(v) / total_clicks_count) * 100) if total_clicks_count > 0 else 0,
+                "count": int(v)
+            }
+            for k, v in sources.items()
+        ]
+        sources_data.sort(key=lambda x: x['count'], reverse=True)
+        
+        return {
+            "summary": {
+                "total_urls": total_urls,
+                "total_clicks": total_clicks_count,
+                "this_month_clicks": this_month_count
+            },
+            "countries": countries_data,
+            "devices": devices_data,
+            "sources": sources_data
+        }
+    
+    except Exception as e:
+        print(f"[ERROR] get_global_analytics: {e}")
+        return {
+            "summary": {"total_urls": 0, "total_clicks": 0, "this_month_clicks": 0},
+            "countries": [],
+            "devices": [],
+            "sources": []
+        }

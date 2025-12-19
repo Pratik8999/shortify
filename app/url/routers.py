@@ -7,7 +7,7 @@ from app.url.schemas import (UrlCreate, Pagination, PaginatedUrlResponse,
                             UrlBulkDelete)
 from app.database import get_db
 from app.url.url_utils import (create_short_url,add_url_analytics, async_cache_fill, 
-                            invalidate_cache, get_top_performing_urls)
+                            invalidate_cache, get_top_performing_urls, get_global_analytics)
 from sqlalchemy.orm import Session,load_only
 
 
@@ -126,6 +126,37 @@ def get_top_performing_analytics(
         print(f"[ERROR] Top performing analytics endpoint: {e}")
         return Response(
             content=json.dumps({"message": "Failed to fetch analytics"}),
+            media_type="application/json",
+            status_code=500
+        )
+
+
+@url_router.get("/analytics/global")
+def get_global_analytics_endpoint(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """
+    Get global analytics across all user's URLs.
+    Returns summary (total URLs, total clicks, this month clicks) and breakdowns by country, device, and source.
+    """
+    try:
+        global_data = get_global_analytics(db, user.id)
+        
+        return Response(
+            content=json.dumps(global_data),
+            media_type="application/json",
+            status_code=200
+        )
+    except Exception as e:
+        print(f"[ERROR] Global analytics endpoint: {e}")
+        return Response(
+            content=json.dumps({
+                "summary": {"total_urls": 0, "total_clicks": 0, "this_month_clicks": 0},
+                "countries": [],
+                "devices": [],
+                "sources": []
+            }),
             media_type="application/json",
             status_code=500
         )
