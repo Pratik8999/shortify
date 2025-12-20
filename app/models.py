@@ -53,6 +53,7 @@ class UrlAnalytics(TimeStamp):
     browser = Column(VARCHAR(30), nullable=True)
     os = Column(VARCHAR(30), nullable=True)
     user_agent = Column(Text, nullable=True)
+    is_bot = Column(Boolean, default=False, nullable=True)
 
     url_ref = relationship("Url", back_populates="analytics")
 

@@ -14,7 +14,8 @@ dependencies = [
     "pyyaml>=6.0.3",
     "redis>=7.1.0",
     "requests>=2.32.5",
-    "user-agents>=2.2.0",
+    "sqladmin>=0.22.0",
+    "ua-parser>=0.18.0",
 ]
 
 [build-system]

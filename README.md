@@ -30,3 +30,7 @@ It supports per-user short links, click analytics, caching, and asynchronous bac
 - **Optional:** AWS Lambda for scheduled jobs
 
 ---
+
+
+## Executable permissions for the deployment files
+- chmod +x deploy_first_time.sh deploy_update.sh
