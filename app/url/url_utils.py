@@ -214,39 +214,50 @@ def update_analytics_cache(url_id: int, user_id: int, country: str, device: str,
     """Update Redis analytics cache with new data"""
     try:
         redis_client = get_redis_client()
+        TTL_SECONDS = 5 * 60 * 60  # 5 hours
         
         # Only update cache for real users, not bots
         if not is_bot:
             # Increment total click count for this URL
             redis_client.incr(f"analytics:url:{url_id}:total_clicks")
+            redis_client.expire(f"analytics:url:{url_id}:total_clicks", TTL_SECONDS)
             
             # Increment user-specific global total clicks
             redis_client.incr(f"analytics:user:{user_id}:global:total_clicks")
+            redis_client.expire(f"analytics:user:{user_id}:global:total_clicks", TTL_SECONDS)
             
             # Increment this month's clicks (key format: analytics:user:{user_id}:global:month:YYYY-MM)
             current_month = datetime.now(timezone.utc).strftime("%Y-%m")
             redis_client.incr(f"analytics:user:{user_id}:global:month:{current_month}")
+            redis_client.expire(f"analytics:user:{user_id}:global:month:{current_month}", 30 * 24 * 60 * 60)  # 30 days for monthly data
             
             # User-specific global analytics
             if country:
                 redis_client.hincrby(f"analytics:user:{user_id}:global:countries", country, 1)
+                redis_client.expire(f"analytics:user:{user_id}:global:countries", TTL_SECONDS)
             if device:
                 redis_client.hincrby(f"analytics:user:{user_id}:global:devices", device, 1)
+                redis_client.expire(f"analytics:user:{user_id}:global:devices", TTL_SECONDS)
             if source_category:
                 redis_client.hincrby(f"analytics:user:{user_id}:global:sources", source_category, 1)
+                redis_client.expire(f"analytics:user:{user_id}:global:sources", TTL_SECONDS)
             
             # Per-URL analytics
             if country:
                 redis_client.hincrby(f"analytics:url:{url_id}:countries", country, 1)
+                redis_client.expire(f"analytics:url:{url_id}:countries", TTL_SECONDS)
             if device:
                 redis_client.hincrby(f"analytics:url:{url_id}:devices", device, 1)
+                redis_client.expire(f"analytics:url:{url_id}:devices", TTL_SECONDS)
             if source_category:
                 redis_client.hincrby(f"analytics:url:{url_id}:sources", source_category, 1)
+                redis_client.expire(f"analytics:url:{url_id}:sources", TTL_SECONDS)
         
         # Track bot sources separately (user-specific)
         else:
             if source_category:
                 redis_client.hincrby(f"analytics:user:{user_id}:global:bot_sources", source_category, 1)
+                redis_client.expire(f"analytics:user:{user_id}:global:bot_sources", TTL_SECONDS)
         
         return True
     except Exception as e:
@@ -292,6 +303,8 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
             # If Redis is empty, then fallback to DB query
             if not countries and not devices and not sources:
                 print(f"[REDIS MISS] Analytics cache miss for URL ID {url.id}")
+                TTL_SECONDS = 5 * 60 * 60  # 5 hours
+                
                 # Query from DB and populate Redis
                 analytics_data = (
                     db.query(
@@ -311,6 +324,10 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
                     if row.device:
                         redis_client.hincrby(f"analytics:url:{url.id}:devices", row.device, row.count)
                 
+                # Set TTL on hash keys
+                redis_client.expire(f"analytics:url:{url.id}:countries", TTL_SECONDS)
+                redis_client.expire(f"analytics:url:{url.id}:devices", TTL_SECONDS)
+                
                 # Query sources separately
                 source_data = (
                     db.query(UrlAnalytics.referrer, func.count(UrlAnalytics.id).label('count'))
@@ -323,8 +340,15 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
                     source_cat = categorize_referrer(row.referrer)
                     redis_client.hincrby(f"analytics:url:{url.id}:sources", source_cat, row.count)
                 
-                # Store total click count in Redis
-                redis_client.set(f"analytics:url:{url.id}:total_clicks", url.click_count)
+                redis_client.expire(f"analytics:url:{url.id}:sources", TTL_SECONDS)
+                
+                # Store total click count in Redis with TTL
+                # Count only non-bot clicks from DB
+                real_clicks_count = db.query(func.count(UrlAnalytics.id)).filter(
+                    UrlAnalytics.url == url.id, 
+                    UrlAnalytics.is_bot == False
+                ).scalar() or 0
+                redis_client.set(f"analytics:url:{url.id}:total_clicks", real_clicks_count, ex=TTL_SECONDS)
                 
                 # Re-fetch from Redis
                 countries = redis_client.hgetall(f"analytics:url:{url.id}:countries")
@@ -401,6 +425,7 @@ def get_global_analytics(db: Session, user_id: int):
         # If cache is empty, rebuild from database
         if not countries and not devices and not sources:
             print("[REDIS MISS] Global analytics cache miss, rebuilding from DB")
+            TTL_SECONDS = 5 * 60 * 60  # 5 hours
             
             # Query all analytics for this user's URLs (excluding bots)
             analytics_query = (
@@ -419,6 +444,7 @@ def get_global_analytics(db: Session, user_id: int):
             for row in country_data:
                 if row.country:
                     redis_client.hincrby(f"analytics:user:{user_id}:global:countries", row.country, row.count)
+            redis_client.expire(f"analytics:user:{user_id}:global:countries", TTL_SECONDS)
             
             # Rebuild devices
             device_data = (
@@ -430,6 +456,7 @@ def get_global_analytics(db: Session, user_id: int):
             for row in device_data:
                 if row.device:
                     redis_client.hincrby(f"analytics:user:{user_id}:global:devices", row.device, row.count)
+            redis_client.expire(f"analytics:user:{user_id}:global:devices", TTL_SECONDS)
             
             # Rebuild sources
             source_data = (
@@ -445,10 +472,11 @@ def get_global_analytics(db: Session, user_id: int):
             
             for source_cat, count in source_counts.items():
                 redis_client.hincrby(f"analytics:user:{user_id}:global:sources", source_cat, count)
+            redis_client.expire(f"analytics:user:{user_id}:global:sources", TTL_SECONDS)
             
-            # Rebuild total clicks
-            total_clicks_db = db.query(func.sum(Url.click_count)).filter(Url.user == user_id).scalar() or 0
-            redis_client.set(f"analytics:user:{user_id}:global:total_clicks", total_clicks_db)
+            # Rebuild total clicks (count only non-bot analytics)
+            total_clicks_db = analytics_query.count()
+            redis_client.set(f"analytics:user:{user_id}:global:total_clicks", total_clicks_db, ex=TTL_SECONDS)
             
             # Rebuild this month's clicks
             month_start = datetime.now(timezone.utc).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -457,7 +485,7 @@ def get_global_analytics(db: Session, user_id: int):
                 .filter(UrlAnalytics.createdon >= month_start)
                 .count()
             )
-            redis_client.set(f"analytics:user:{user_id}:global:month:{current_month}", this_month_clicks_db)
+            redis_client.set(f"analytics:user:{user_id}:global:month:{current_month}", this_month_clicks_db, ex=30 * 24 * 60 * 60)  # 30 days
             
             # Re-fetch from Redis
             countries = redis_client.hgetall(f"analytics:user:{user_id}:global:countries")
