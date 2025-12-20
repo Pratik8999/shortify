@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # Backend reverse proxy (FastAPI gateway)
   nginx:
     image: nginx:latest
     container_name: nginx_gateway
@@ -9,21 +10,31 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
+      - frontend
       - app
 
+      
+  # React frontend (PUBLIC image)
+  frontend:
+    image: pratik8999/url-shortner-frontend:latest
+    container_name: url_shortener_frontend
+
+
+  # FastAPI backend (PRIVATE image)
   app:
-    build: .
+    image: pratik8999/url-shortener-backend:latest
     container_name: url_shortener_app
     env_file:
       - .env
     expose:
-      - "8000"  # internal only, nginx will proxy to this
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
 
+  # PostgreSQL
   db:
     image: postgres:15
     container_name: url_shortener_db
@@ -38,6 +49,7 @@ services:
       interval: 5s
       retries: 5
 
+  # Redis
   redis:
     image: redis:7-alpine
     container_name: url_shortener_redis
