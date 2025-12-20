@@ -14,13 +14,13 @@ services:
       - app
 
       
-  # React frontend (PUBLIC image)
+  # React frontend
   frontend:
     image: pratik8999/url-shortner-frontend:latest
     container_name: url_shortener_frontend
 
 
-  # FastAPI backend (PRIVATE image)
+  # FastAPI backend
   app:
     image: pratik8999/url-shortener-backend:latest
     container_name: url_shortener_app
