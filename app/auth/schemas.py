@@ -5,7 +5,7 @@ import re
 class UserBase(BaseModel):
     name: str
     email: EmailStr
-    country: str
+    country: str|None = None
 
     @field_validator("email",mode="before")
     @classmethod

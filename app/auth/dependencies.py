@@ -4,6 +4,7 @@ from fastapi import Depends,HTTPException
 from sqlalchemy.orm import Session,load_only
 from app.auth.jwt_handler import verify_token
 from app.database import get_db
+from app.auth.country_codes import get_country_name
 from os import getenv
 import requests
 
@@ -30,6 +31,10 @@ def get_country_by_ip(ip):
     request_url = getenv("IPINFO_ENDPOINT") + f"/{ip}?token={getenv('IPINFO_API_KEY')}"
     response = requests.get(request_url)
     response_data = response.json()
-    return response_data.get('country')
+    # print(response_data)
+    
+    # Get country code from ipinfo and convert to full country name
+    country_code = response_data.get('country')
+    return get_country_name(country_code)
     # lat, lon = response_data.get('loc').split(',')
     # return [country, response_data.get('region'), response_data.get('city'), lat , lon]

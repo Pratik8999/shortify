@@ -63,3 +63,18 @@ class BlacklistedToken(ORM_BASE_MODEL):
     __tablename__ = "blacklisted_tokens"
     
     jti = Column(VARCHAR(120), primary_key=True, nullable=False)
+
+
+class AppVisit(TimeStamp):
+    __tablename__ = "app_visit"
+    
+    id = Column(BigInteger, nullable=False, primary_key=True, autoincrement=True)
+    ip_address = Column(VARCHAR(64), nullable=False, unique=True, index=True)
+    country = Column(VARCHAR(50), nullable=True)
+    city = Column(VARCHAR(100), nullable=True)
+    region = Column(VARCHAR(100), nullable=True)
+    latitude = Column(VARCHAR(20), nullable=True)
+    longitude = Column(VARCHAR(20), nullable=True)
+    timezone = Column(VARCHAR(50), nullable=True)
+    org = Column(VARCHAR(255), nullable=True)  # ISP/Organization
+    postal = Column(VARCHAR(20), nullable=True)

@@ -6,8 +6,7 @@ from app.models import (User, Url)
 from app.url.schemas import (UrlCreate, Pagination, PaginatedUrlResponse, 
                             UrlBulkDelete)
 from app.database import get_db
-from app.url.url_utils import (create_short_url,add_url_analytics, async_cache_fill, 
-                            invalidate_cache, get_top_performing_urls, get_global_analytics)
+from app.url.url_utils import (create_short_url,invalidate_cache, get_top_performing_urls, get_global_analytics)
 from sqlalchemy.orm import Session,load_only
 
 

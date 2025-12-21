@@ -4,8 +4,9 @@ from fastapi.responses import RedirectResponse
 import json
 from app.auth.routers import auth_router
 from app.url.routers import url_router
+from app.visit.routers import visit_router
 from app.database import get_db,engine
-from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin
+from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin
 from app.models import Url
 from app.url.url_utils import add_url_analytics, async_cache_fill
 from app.redis_client import get_redis_client
@@ -40,11 +41,13 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(url_router)
+app.include_router(visit_router)
 
 # Initialize admin views
 admin.add_view(UserAdmin)
 admin.add_view(UrlAdmin)
 admin.add_view(UrlAnalyticsAdmin)
+admin.add_view(AppVisitAdmin)
 
 
 # Root level redirect endpoint for URL shortener
