@@ -1,5 +1,5 @@
 from sqladmin import ModelView
-from app.models import User, Url, UrlAnalytics
+from app.models import User, Url, UrlAnalytics, AppVisit
 from app.auth.hashing import hash_password
 from wtforms import PasswordField, StringField
 from wtforms.validators import DataRequired, Length, Optional as OptionalValidator
@@ -106,6 +106,37 @@ class UrlAnalyticsAdmin(ModelView, model=UrlAnalytics):
         "ip_address": {
             "label": "IP Address",
             "description": "Visitor's IP address"
+        }
+    }
+
+
+class AppVisitAdmin(ModelView, model=AppVisit):
+    column_list = [AppVisit.id, AppVisit.ip_address, AppVisit.country, AppVisit.city, 
+                   AppVisit.region, AppVisit.org, AppVisit.createdon, AppVisit.updatedon]
+    column_searchable_list = [AppVisit.ip_address, AppVisit.country, AppVisit.city, AppVisit.org]
+    column_sortable_list = [AppVisit.id, AppVisit.country, AppVisit.createdon, AppVisit.updatedon]
+    column_default_sort = [(AppVisit.createdon, True)]  # Sort by newest first
+    
+    # Read-only fields
+    form_excluded_columns = [AppVisit.createdon, AppVisit.updatedon]
+    
+    # Truncate long fields for display
+    column_formatters = {
+        AppVisit.org: lambda model, a: model.org[:40] + "..." if model.org and len(model.org) > 40 else model.org
+    }
+    
+    form_args = {
+        "ip_address": {
+            "label": "IP Address",
+            "description": "Unique visitor IP address"
+        },
+        "country": {
+            "label": "Country",
+            "description": "Visitor's country"
+        },
+        "city": {
+            "label": "City",
+            "description": "Visitor's city"
         }
     }
 
