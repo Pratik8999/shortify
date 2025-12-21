@@ -111,33 +111,107 @@ class UrlAnalyticsAdmin(ModelView, model=UrlAnalytics):
 
 
 class AppVisitAdmin(ModelView, model=AppVisit):
+    name = "App Visit"
+    name_plural = "App Visits"
+    icon = "fa-solid fa-chart-line"
+    
     column_list = [AppVisit.id, AppVisit.ip_address, AppVisit.country, AppVisit.city, 
-                   AppVisit.region, AppVisit.org, AppVisit.createdon, AppVisit.updatedon]
-    column_searchable_list = [AppVisit.ip_address, AppVisit.country, AppVisit.city, AppVisit.org]
-    column_sortable_list = [AppVisit.id, AppVisit.country, AppVisit.createdon, AppVisit.updatedon]
+                   AppVisit.region, AppVisit.timezone, AppVisit.org, AppVisit.createdon, AppVisit.updatedon]
+    column_searchable_list = [AppVisit.ip_address, AppVisit.country, AppVisit.city, 
+                             AppVisit.region, AppVisit.org, AppVisit.postal]
+    column_sortable_list = [AppVisit.id, AppVisit.country, AppVisit.city, 
+                           AppVisit.createdon, AppVisit.updatedon]
     column_default_sort = [(AppVisit.createdon, True)]  # Sort by newest first
     
-    # Read-only fields
+    # Show all details in the detail view
+    column_details_list = [
+        AppVisit.id,
+        AppVisit.ip_address,
+        AppVisit.country,
+        AppVisit.city,
+        AppVisit.region,
+        AppVisit.latitude,
+        AppVisit.longitude,
+        AppVisit.timezone,
+        AppVisit.org,
+        AppVisit.postal,
+        AppVisit.createdon,
+        AppVisit.updatedon
+    ]
+    
+    # Read-only fields - prevent modification of timestamps
     form_excluded_columns = [AppVisit.createdon, AppVisit.updatedon]
     
     # Truncate long fields for display
     column_formatters = {
-        AppVisit.org: lambda model, a: model.org[:40] + "..." if model.org and len(model.org) > 40 else model.org
+        AppVisit.org: lambda model, a: model.org[:50] + "..." if model.org and len(model.org) > 50 else model.org,
+        AppVisit.ip_address: lambda model, a: f"<code>{model.ip_address}</code>" if model.ip_address else None
+    }
+    
+    # Add labels for better column headers
+    column_labels = {
+        "id": "ID",
+        "ip_address": "IP Address",
+        "country": "Country",
+        "city": "City",
+        "region": "Region/State",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "timezone": "Timezone",
+        "org": "ISP/Organization",
+        "postal": "Postal Code",
+        "createdon": "First Visit",
+        "updatedon": "Last Updated"
     }
     
     form_args = {
         "ip_address": {
             "label": "IP Address",
-            "description": "Unique visitor IP address"
+            "description": "Unique visitor IP address (IPv4 or IPv6)",
+            "validators": [DataRequired()]
         },
         "country": {
             "label": "Country",
-            "description": "Visitor's country"
+            "description": "Visitor's country (2-letter code or full name)"
         },
         "city": {
             "label": "City",
             "description": "Visitor's city"
+        },
+        "region": {
+            "label": "Region/State",
+            "description": "Visitor's region or state"
+        },
+        "latitude": {
+            "label": "Latitude",
+            "description": "Geographic latitude coordinate"
+        },
+        "longitude": {
+            "label": "Longitude",
+            "description": "Geographic longitude coordinate"
+        },
+        "timezone": {
+            "label": "Timezone",
+            "description": "Visitor's timezone (e.g., America/New_York)"
+        },
+        "org": {
+            "label": "ISP/Organization",
+            "description": "Internet Service Provider or organization"
+        },
+        "postal": {
+            "label": "Postal Code",
+            "description": "Visitor's postal/zip code"
         }
     }
+    
+    # Enable pagination
+    page_size = 50
+    page_size_options = [25, 50, 100, 200]
+    
+    # Make it read-only by default (optional - remove if you want editing)
+    can_create = True
+    can_edit = True
+    can_delete = True
+    can_view_details = True
 
     
