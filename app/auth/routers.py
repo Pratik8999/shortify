@@ -9,7 +9,7 @@ from app.auth.jwt_handler import (create_access_token, create_refresh_token, ver
 from app.models import User
 from sqlalchemy.orm import load_only
 from fastapi.security import OAuth2PasswordBearer
-from app.auth.dependencies import get_current_user, get_country_by_ip
+from app.auth.dependencies import get_current_user, get_country_by_ip, get_client_ip
 from sqlalchemy.exc import IntegrityError
 
 
@@ -26,8 +26,9 @@ def register_user(user:UserCreate,request:Request, db:Session = Depends(get_db))
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists.")
     else:
-        hashed_password = hash_password(user.password) 
-        country= get_country_by_ip(request.client.host)
+        hashed_password = hash_password(user.password)
+        client_ip = get_client_ip(request) 
+        country= get_country_by_ip(client_ip)
         new_user = User(name=user.name, email=user.email,password=hashed_password,country=country)
         
         new_user = safe_commit_with_refresh(db,new_user)

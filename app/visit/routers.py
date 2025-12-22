@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import AppVisit
 from app.auth.country_codes import get_country_name
+from app.auth.dependencies import get_client_ip
 from os import getenv
 import requests
 
@@ -42,7 +43,7 @@ async def track_visit(request: Request, db: Session = Depends(get_db)):
     - Returns success status
     """
     # Get client IP address
-    client_ip = request.client.host
+    client_ip = get_client_ip(request)
     
     # New visitor - fetch IP info
     ip_info = get_ip_info(client_ip)
