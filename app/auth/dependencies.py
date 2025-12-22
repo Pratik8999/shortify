@@ -1,6 +1,6 @@
 from app.models import User
 from fastapi.security.oauth2 import OAuth2PasswordBearer
-from fastapi import Depends,HTTPException
+from fastapi import Depends,HTTPException,Request
 from sqlalchemy.orm import Session,load_only
 from app.auth.jwt_handler import verify_token
 from app.database import get_db
@@ -38,3 +38,11 @@ def get_country_by_ip(ip):
     return get_country_name(country_code)
     # lat, lon = response_data.get('loc').split(',')
     # return [country, response_data.get('region'), response_data.get('city'), lat , lon]
+
+
+def get_client_ip(request: Request):
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        # first IP is the real client
+        return x_forwarded_for.split(",")[0].strip()
+    return request.client.host
