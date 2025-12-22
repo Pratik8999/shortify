@@ -1,12 +1,14 @@
 from fastapi import FastAPI, Depends, Response, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 import json
 from app.auth.routers import auth_router
 from app.url.routers import url_router
 from app.visit.routers import visit_router
 from app.database import get_db,engine
 from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin
+from app.admin.auth import AdminAuth, get_secret_key
 from app.models import Url
 from app.url.url_utils import add_url_analytics, async_cache_fill
 from app.redis_client import get_redis_client
@@ -14,14 +16,31 @@ from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from os import getenv
 from sqladmin import Admin
+import secrets
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI()
 
-# Initialize SQLAdmin
-admin = Admin(app, engine)
+# Get or generate secret key for sessions
+secret_key = getenv("ADMIN_SECRET_KEY", get_secret_key())
+if secret_key == "your-secret-key-here-change-in-production-min-32-chars":
+    # Generate a random secret key if not provided in environment
+    secret_key = secrets.token_urlsafe(32)
+    print("⚠️  WARNING: Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
+
+# Add session middleware for admin authentication
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+
+# Initialize SQLAdmin with authentication
+authentication_backend = AdminAuth(secret_key=secret_key)
+admin = Admin(
+    app, 
+    engine,
+    authentication_backend=authentication_backend,
+    templates_dir="app/admin/templates"
+)
 
 # Get CORS origins from environment variable
 cors_origins_str = getenv("CORS_ORIGINS", "")

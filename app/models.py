@@ -21,6 +21,7 @@ class User(TimeStamp):
     password = Column(VARCHAR(120), nullable=False)
     country = Column(VARCHAR(50), nullable=False)
     isactive = Column(Boolean, default=True, nullable=False)
+    is_superuser = Column(Boolean, default=False, nullable=False)
 
     urls = relationship("Url", back_populates="user_ref", cascade="all, delete")
 
