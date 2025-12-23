@@ -1,8 +1,12 @@
 [project]
 name = "url-shortner"
 version = "0.1.0"
-description = "Add your description here"
+description = "A powerful and feature-rich URL shortener service built with FastAPI, featuring analytics, admin dashboard, rate limiting, and Redis caching."
 readme = "README.md"
+authors = [
+    {name = "Pratik Joshi", email = "joshipratik8999@gmail.com"}
+]
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
     "alembic>=1.17.0",
@@ -18,6 +22,11 @@ dependencies = [
     "sqladmin>=0.22.0",
     "ua-parser>=0.18.0",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/Pratik8999/shortify"
+"Repository" = "https://github.com/Pratik8999/shortify"
+"Bug Tracker" = "https://github.com/Pratik8999/shortify/issues"
 
 [build-system]
 requires = ["setuptools", "wheel"]
