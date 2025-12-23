@@ -25,6 +25,7 @@ A modern, fast, and scalable URL shortening service with analytics. Built with F
 
 **Frontend**
 - React - Modern UI framework
+- [Frontend Repository](https://github.com/Pratik8999/shortify-frontend)
 
 ## 🚀 Quick Start
 
@@ -39,9 +40,12 @@ A modern, fast, and scalable URL shortening service with analytics. Built with F
 ### Run with Docker
 
 ```bash
-# Clone the repository
+# Clone the backend repository
 git clone https://github.com/Pratik8999/shortify.git
 cd shortify
+
+# Clone the frontend repository (in a separate directory)
+git clone https://github.com/Pratik8999/shortify-frontend.git
 
 # Start all services
 docker-compose up -d
