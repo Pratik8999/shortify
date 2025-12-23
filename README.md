@@ -1,36 +1,79 @@
 # Shortify
 
-**Shortify** is a scalable URL shortening service built with **FastAPI**, **PostgreSQL**, **Redis**, and **Celery**.  
-It supports per-user short links, click analytics, caching, and asynchronous background tasks. Designed for easy deployment with Docker and AWS.
+A modern, fast, and scalable URL shortening service with analytics. Built with FastAPI and designed for easy deployment with Docker.
 
----
+## ✨ Features
 
-## 🚀 Features
+- **URL Shortening** - Generate short, shareable links instantly
+- **User Management** - JWT-based authentication with user profiles
+- **Analytics Dashboard** - Track clicks, locations, devices, and referrers
+- **Expiration Support** - Set custom expiration dates for URLs
+- **Redis Caching** - Lightning-fast redirects with intelligent caching
+- **Admin Panel** - Built-in admin interface powered by SQLAdmin
+- **Visit Tracking** - Monitor application traffic with geo-location data
+- **Bulk Operations** - Delete multiple URLs efficiently
+- **IP-based Geolocation** - Track user locations with ipinfo.io integration
 
-- Create short URLs for any long link
-- Per-user URL management
-- Click tracking & analytics
-- Expiration support for short URLs
-- Redis caching for fast redirects
-- Celery-powered async tasks for analytics and cleanup
-- Optional AWS Lambda integration for scheduled maintenance
-- Clean, minimal frontend for managing links (React or Jinja2 templates)
+## 🛠️ Tech Stack
 
----
+**Backend**
+- FastAPI - High-performance async web framework
+- PostgreSQL - Reliable relational database
+- Redis - In-memory caching for fast redirects
+- SQLAlchemy - Robust ORM with Alembic migrations
+- JWT - Secure token-based authentication
 
-## 🧰 Tech Stack
+**Frontend**
+- React - Modern UI framework
+- [Frontend Repository](https://github.com/Pratik8999/shortify-frontend)
 
-- **Backend:** FastAPI  
-- **Database:** PostgreSQL  
-- **Cache:** Redis  
-- **Task Queue:** Celery  
-- **Containerization:** Docker & Docker Compose  
-- **Frontend:** React / Jinja2 templates  
-- **Cloud Deployment:** AWS EC2  
-- **Optional:** AWS Lambda for scheduled jobs
+## 🚀 Quick Start
 
----
+- See [DOCKER_SETUP.md](DOCKER_SETUP.md) for detailed Docker setup instructions
+- For environment variable details, see `.env.example`
 
+### Prerequisites
 
-## Executable permissions for the deployment files
-- chmod +x deploy_first_time.sh deploy_update.sh
+- Docker and Docker Compose installed
+- `.env` file with required environment variables
+
+### Run with Docker
+
+```bash
+# Clone the backend repository
+git clone https://github.com/Pratik8999/shortify.git
+cd shortify
+
+# Clone the frontend repository (in a separate directory)
+git clone https://github.com/Pratik8999/shortify-frontend.git
+
+# Start all services
+docker-compose up -d
+```
+
+Access the application at `http://localhost`
+
+## 📦 Project Structure
+
+```
+.
+├── app/
+│   ├── auth/          # Authentication & authorization
+│   ├── url/           # URL shortening logic
+│   ├── visit/         # Visit tracking
+│   ├── admin/         # Admin panel
+│   ├── models.py      # Database models
+│   └── main.py        # FastAPI application
+├── migrations/        # Alembic migrations
+├── nginx/            # Nginx configuration
+├── docker-compose.yml
+└── Dockerfile
+```
+
+## 📄 License
+
+MIT License - feel free to use this project for personal or commercial purposes.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.

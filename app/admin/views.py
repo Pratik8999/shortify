@@ -7,7 +7,7 @@ from sqlalchemy import Column
 
 
 class UserAdmin(ModelView, model=User):
-    column_list = [User.id, User.name, User.email, User.country, User.isactive, User.createdon, User.updatedon]
+    column_list = [User.id, User.name, User.email, User.country, User.isactive, User.is_superuser, User.createdon, User.updatedon]
     column_searchable_list = [User.email, User.country]
     column_sortable_list = [User.id, User.email, User.createdon]
     column_details_exclude_list = [User.password]
