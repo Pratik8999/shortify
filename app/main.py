@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, Response, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import json
 from app.auth.routers import auth_router
 from app.url.routers import url_router
@@ -21,7 +23,13 @@ import secrets
 # Load environment variables
 load_dotenv()
 
-app = FastAPI()
+app = FastAPI(
+    root_path="",
+    # Trust proxy headers for correct scheme detection
+    servers=[
+        {"url": "https://shrtfy.in", "description": "Production server"},
+    ]
+)
 
 # Get or generate secret key for sessions
 secret_key = getenv("ADMIN_SECRET_KEY", get_secret_key())
@@ -31,7 +39,24 @@ if secret_key == "your-secret-key-here-change-in-production-min-32-chars":
     print("⚠️  WARNING: Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
 
 # Add session middleware for admin authentication
-app.add_middleware(SessionMiddleware, secret_key=secret_key)
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=secret_key,
+    https_only=True,  # Only send cookies over HTTPS
+    same_site="lax"   # CSRF protection
+)
+
+# Proxy headers middleware - handle X-Forwarded-Proto
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Trust X-Forwarded-Proto header from nginx
+        forwarded_proto = request.headers.get("X-Forwarded-Proto")
+        if forwarded_proto:
+            request.scope["scheme"] = forwarded_proto
+        response = await call_next(request)
+        return response
+
+app.add_middleware(ProxyHeadersMiddleware)
 
 # Initialize SQLAdmin with authentication
 authentication_backend = AdminAuth(secret_key=secret_key)
