@@ -113,7 +113,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
     cached_url = redis_client.get(url_code)
 
     if cached_url:
-        main_logger.info(f"Cache hit for url_code={url_code}")
+        # main_logger.info(f"Cache hit for url_code={url_code}")
 
         background_tasks.add_task(
             add_url_analytics,
@@ -125,7 +125,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
         return RedirectResponse(cached_url, status_code=307)
     
     else:
-        main_logger.info(f"Cache miss for url_code={url_code}")
+        # main_logger.info(f"Cache miss for url_code={url_code}")
         
         # Check if the incoming url code exists in the database
         url = db.query(Url.url, Url.code).filter(Url.code == url_code).first()
