@@ -4,11 +4,12 @@ from app.database import get_db
 from app.models import AppVisit
 from app.auth.country_codes import get_country_name
 from app.auth.dependencies import get_client_ip
+from ua_parser import user_agent_parser
 from os import getenv
 import requests
 
 visit_router = APIRouter(
-    prefix="/api/visit",
+    prefix="/api/info",
     tags=["Visit Tracking"]
 )
 
@@ -33,17 +34,60 @@ def get_ip_info(ip: str) -> dict:
         return {}
 
 
-@visit_router.get("/track")
+@visit_router.get("/ping")
 async def track_visit(request: Request, db: Session = Depends(get_db)):
     """
     Track application visits by IP address.
     
-    - If IP is new, creates a new visit record with location data
+    - If IP is new, creates a new visit record with location data and device info
     - If IP exists, returns 200 OK without any updates
     - Returns success status
+    - Extracts device, browser, and OS information from User-Agent header
     """
     # Get client IP address
     client_ip = get_client_ip(request)
+    
+    # Get user agent from request headers
+    user_agent = request.headers.get("user-agent")
+    
+    # Parse device, browser, and OS from user agent
+    device_type = None
+    browser_name = None
+    os_name = None
+    
+    if user_agent:
+        parsed = user_agent_parser.Parse(user_agent)
+        
+        # Extract browser
+        browser_family = parsed.get('user_agent', {}).get('family')
+        browser_name = browser_family if browser_family != 'Other' else None
+        
+        # Extract OS
+        os_family = parsed.get('os', {}).get('family')
+        os_name = os_family if os_family != 'Other' else None
+        
+        # Extract and categorize device
+        device_family = parsed.get('device', {}).get('family')
+        ua_lower = user_agent.lower()
+        
+        # Categorize device type
+        if device_family == 'Spider':
+            device_type = 'Spider'
+        elif device_family in ['iPhone', 'iPad']:
+            device_type = device_family
+        elif os_family in ['iOS', 'Android', 'Windows Phone', 'BlackBerry OS']:
+            if 'tablet' in ua_lower or 'ipad' in ua_lower:
+                device_type = 'Tablet'
+            else:
+                device_type = 'Mobile'
+        elif os_family in ['Windows', 'Mac OS X', 'Linux', 'Ubuntu', 'Chrome OS']:
+            device_type = 'Desktop'
+        elif 'mobile' in ua_lower or 'android' in ua_lower:
+            device_type = 'Mobile'
+        elif 'tablet' in ua_lower:
+            device_type = 'Tablet'
+        else:
+            device_type = 'Unknown'
     
     # New visitor - fetch IP info
     ip_info = get_ip_info(client_ip)
@@ -67,7 +111,10 @@ async def track_visit(request: Request, db: Session = Depends(get_db)):
             longitude=longitude,
             timezone=ip_info.get('timezone'),
             org=ip_info.get('org'),
-            postal=ip_info.get('postal')
+            postal=ip_info.get('postal'),
+            device=device_type,
+            browser=browser_name,
+            os=os_name
         )
         
         db.add(new_visit)

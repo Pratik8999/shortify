@@ -79,3 +79,6 @@ class AppVisit(TimeStamp):
     timezone = Column(VARCHAR(50), nullable=True)
     org = Column(VARCHAR(255), nullable=True)  # ISP/Organization
     postal = Column(VARCHAR(20), nullable=True)
+    device = Column(VARCHAR(30), nullable=True)
+    browser = Column(VARCHAR(30), nullable=True)
+    os = Column(VARCHAR(30), nullable=True)
