@@ -19,9 +19,13 @@ from dotenv import load_dotenv
 from os import getenv
 from sqladmin import Admin
 import secrets
+from app.logging_config import configure_logging, main_logger
 
 # Load environment variables
 load_dotenv()
+
+# Initialize logging system
+configure_logging()
 
 app = FastAPI(
     root_path="",
@@ -36,7 +40,7 @@ secret_key = getenv("ADMIN_SECRET_KEY", get_secret_key())
 if secret_key == "your-secret-key-here-change-in-production-min-32-chars":
     # Generate a random secret key if not provided in environment
     secret_key = secrets.token_urlsafe(32)
-    print("⚠️  WARNING: Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
+    main_logger.warning("Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
 
 # Add session middleware for admin authentication
 app.add_middleware(
@@ -109,7 +113,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
     cached_url = redis_client.get(url_code)
 
     if cached_url:
-        print(f"[CACHE HIT] url_code={url_code} → {cached_url}")
+        main_logger.info(f"Cache hit for url_code={url_code}")
 
         background_tasks.add_task(
             add_url_analytics,
@@ -121,7 +125,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
         return RedirectResponse(cached_url, status_code=307)
     
     else:
-        print(f"[CACHE MISS] url_code={url_code}")
+        main_logger.info(f"Cache miss for url_code={url_code}")
         
         # Check if the incoming url code exists in the database
         url = db.query(Url.url, Url.code).filter(Url.code == url_code).first()

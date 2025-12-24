@@ -11,6 +11,7 @@ from sqlalchemy.orm import load_only
 from fastapi.security import OAuth2PasswordBearer
 from app.auth.dependencies import get_current_user, get_country_by_ip, get_client_ip
 from sqlalchemy.exc import IntegrityError
+from app.logging_config import auth_logger
 
 
 
@@ -77,11 +78,11 @@ def logout(body: dict, db: Session = Depends(get_db), access_token: str = Depend
         if invalidate_token(access_token,body.get('refresh_token',None),db):
             return {"message": "Successfully logged out."}
         else:
-            print("Failed to invalidate tokens during logout")
+            auth_logger.error("Failed to invalidate tokens during logout")
             raise HTTPException(status_code=400, detail="Invalid or expired token")
     
     except Exception as ex:
-        print("Got unexpected exception during logout:", str(ex))
+        auth_logger.error(f"Unexpected exception during logout: {str(ex)}", exc_info=True)
         raise HTTPException(status_code=400, detail="Invalid or expired token")
     
 
@@ -100,5 +101,5 @@ def update_profile(user_update:UserUpdate, user:User = Depends(get_current_user)
         return updated_user
     
     except IntegrityError as ie:
-        print(f"Type of ie:{type(ie)} | Message DETAIL: {ie.orig.diag.message_detail}")
+        auth_logger.error(f"Profile update integrity error: {ie.orig.diag.message_detail}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(ie.orig.diag.message_detail)) 

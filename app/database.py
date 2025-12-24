@@ -2,6 +2,7 @@ from sqlalchemy import URL,create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from os import getenv
+import logging
 
 # Load .env file only if not running in Docker (where env vars are passed directly)
 load_dotenv(override=False)
@@ -11,7 +12,7 @@ load_dotenv(override=False)
 
 db_url = getenv("DB_URL")
 
-engine = create_engine(url=db_url, echo=True)
+engine = create_engine(url=db_url)
 
 db_connection = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
@@ -22,7 +23,8 @@ def get_db():
         yield db
         
     except Exception as ex:
-        print(f"Database Connection error:{ex}")
+        logger = logging.getLogger("app.main")
+        logger.error(f"Database connection error: {str(ex)}", exc_info=True)
         raise
     
     finally:

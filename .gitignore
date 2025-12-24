@@ -11,3 +11,7 @@ wheels/
 
 # Environment variables
 .env
+
+# Log files
+logs/*.log
+!logs/.gitkeep

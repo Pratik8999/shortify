@@ -7,6 +7,7 @@ from app.auth.dependencies import get_client_ip
 from ua_parser import user_agent_parser
 from os import getenv
 import requests
+from app.logging_config import visit_logger
 
 visit_router = APIRouter(
     prefix="/api/info",
@@ -30,7 +31,7 @@ def get_ip_info(ip: str) -> dict:
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        print(f"Error fetching IP info: {e}")
+        visit_logger.error(f"Error fetching IP info for {ip}: {str(e)}", exc_info=True)
         return {}
 
 
@@ -123,6 +124,6 @@ async def track_visit(request: Request, db: Session = Depends(get_db)):
         return {}
     except Exception as e:
         db.rollback()
-        print(f"Error tracking visit: {e}")
+        visit_logger.error(f"Error tracking visit from {client_ip}: {str(e)}", exc_info=True)
         return {}
     

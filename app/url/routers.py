@@ -8,6 +8,7 @@ from app.url.schemas import (UrlCreate, Pagination, PaginatedUrlResponse,
 from app.database import get_db
 from app.url.url_utils import (create_short_url,invalidate_cache, get_top_performing_urls, get_global_analytics)
 from sqlalchemy.orm import Session,load_only
+from app.logging_config import url_logger
 
 
 url_router = APIRouter(tags=["URLs"], prefix="/api/url-shortner")
@@ -96,7 +97,7 @@ def delete_urls(bulk_delete: UrlBulkDelete, background_tasks: BackgroundTasks,
         return Response(json.dumps({"message":"URLs deleted successfully."}), media_type="application/json", status_code=200)
         
     except Exception as e:
-        print(f"URL deletion failed: {str(e)}")
+        url_logger.error(f"URL deletion failed: {str(e)}", exc_info=True)
         return Response(json.dumps({"message":"URL deletion failed."}), media_type="application/json", status_code=500)
 
 
@@ -122,7 +123,7 @@ def get_top_performing_analytics(
             status_code=200
         )
     except Exception as e:
-        print(f"[ERROR] Top performing analytics endpoint: {e}")
+        url_logger.error(f"Top performing analytics endpoint error: {str(e)}", exc_info=True)
         return Response(
             content=json.dumps({"message": "Failed to fetch analytics"}),
             media_type="application/json",
@@ -148,7 +149,7 @@ def get_global_analytics_endpoint(
             status_code=200
         )
     except Exception as e:
-        print(f"[ERROR] Global analytics endpoint: {e}")
+        url_logger.error(f"Global analytics endpoint error: {str(e)}", exc_info=True)
         return Response(
             content=json.dumps({
                 "summary": {"total_urls": 0, "total_clicks": 0, "this_month_clicks": 0},
