@@ -9,7 +9,7 @@ from app.auth.routers import auth_router
 from app.url.routers import url_router
 from app.visit.routers import visit_router
 from app.database import get_db,engine
-from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin
+from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin, SupportRequestAdmin
 from app.admin.auth import AdminAuth, get_secret_key
 from app.models import Url
 from app.url.url_utils import add_url_analytics, async_cache_fill
@@ -96,6 +96,7 @@ admin.add_view(UserAdmin)
 admin.add_view(UrlAdmin)
 admin.add_view(UrlAnalyticsAdmin)
 admin.add_view(AppVisitAdmin)
+admin.add_view(SupportRequestAdmin)
 
 
 # Root level redirect endpoint for URL shortener

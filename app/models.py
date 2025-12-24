@@ -82,3 +82,15 @@ class AppVisit(TimeStamp):
     device = Column(VARCHAR(30), nullable=True)
     browser = Column(VARCHAR(30), nullable=True)
     os = Column(VARCHAR(30), nullable=True)
+
+
+class SupportRequest(TimeStamp):
+    __tablename__ = "support_request"
+    
+    id = Column(BigInteger, nullable=False, primary_key=True, autoincrement=True)
+    name = Column(VARCHAR(100), nullable=False)
+    email = Column(VARCHAR(100), nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    ip_address = Column(VARCHAR(64), nullable=True)
+    status = Column(VARCHAR(20), default="pending", nullable=False)  # pending, reviewed, resolved
+    admin_notes = Column(Text, nullable=True)

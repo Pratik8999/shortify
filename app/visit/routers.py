@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import AppVisit
+from app.models import AppVisit, SupportRequest
 from app.auth.country_codes import get_country_name
 from app.auth.dependencies import get_client_ip
 from ua_parser import user_agent_parser
 from os import getenv
 import requests
 from app.logging_config import visit_logger
+from app.visit.schemas import SupportRequestCreate, SupportRequestResponse
+from app.visit.security import contact_rate_limiter, check_origin
+from app.db_utils import safe_commit_with_refresh
 
 visit_router = APIRouter(
     prefix="/api/info",
@@ -18,12 +21,6 @@ visit_router = APIRouter(
 def get_ip_info(ip: str) -> dict:
     """
     Fetch IP information from ipinfo.io API.
-    
-    Args:
-        ip: IP address to lookup
-        
-    Returns:
-        Dictionary containing IP information
     """
     try:
         request_url = getenv("IPINFO_ENDPOINT") + f"/{ip}?token={getenv('IPINFO_API_KEY')}"
@@ -39,11 +36,6 @@ def get_ip_info(ip: str) -> dict:
 async def track_visit(request: Request, db: Session = Depends(get_db)):
     """
     Track application visits by IP address.
-    
-    - If IP is new, creates a new visit record with location data and device info
-    - If IP exists, returns 200 OK without any updates
-    - Returns success status
-    - Extracts device, browser, and OS information from User-Agent header
     """
     # Get client IP address
     client_ip = get_client_ip(request)
@@ -126,4 +118,80 @@ async def track_visit(request: Request, db: Session = Depends(get_db)):
         db.rollback()
         visit_logger.error(f"Error tracking visit from {client_ip}: {str(e)}", exc_info=True)
         return {}
+
+
+@visit_router.post("/contact", response_model=SupportRequestResponse, status_code=201)
+async def submit_contact_form(
+    support_request: SupportRequestCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    honeypot: str | None = Header(None, alias="X-Honeypot")
+):
+    """
+    Submit a support/contact request.
+    Rate limiting: 3 requests per hour per IP
+    Origin validation: Only allowed origins can submit
+    Honeypot field: Hidden field to catch bots (sent via header)
+    IP logging: Track submissions by IP for abuse prevention 
+    
+    """
+    try:
+        # Get client IP
+        client_ip = get_client_ip(request)
+        
+        # Check rate limit
+        is_allowed, rate_message = contact_rate_limiter.is_allowed(client_ip)
+        if not is_allowed:
+            visit_logger.warning(f"Rate limit exceeded for contact form from IP: {client_ip}")
+            raise HTTPException(status_code=429, detail=rate_message)
+        
+        # Check origin (CORS - ensure request comes from your frontend)
+        allowed_origins = getenv("CORS_ORIGINS", "").split(",")
+        allowed_origins = [origin.strip() for origin in allowed_origins if origin.strip()]
+        
+        if allowed_origins and not check_origin(request, allowed_origins):
+            origin = request.headers.get("origin", "unknown")
+            visit_logger.warning(f"Contact form submission from unauthorized origin: {origin}, IP: {client_ip}")
+            raise HTTPException(status_code=403, detail="Request not allowed from this origin")
+        
+        # Check honeypot (bot detection)
+        if honeypot and honeypot.strip():
+            visit_logger.warning(f"Bot detected in contact form (honeypot filled) from IP: {client_ip}")
+            # Return success to bot but don't save
+            return SupportRequestResponse(
+                success=True,
+                message="Thank you for your message. We'll get back to you soon!",
+                request_id=None
+            )
+        
+        # Create support request
+        new_request = SupportRequest(
+            name=support_request.name,
+            email=support_request.email,
+            message=support_request.message,
+            ip_address=client_ip,
+            status="pending"
+        )
+        
+        new_request = safe_commit_with_refresh(db, new_request)
+        
+        visit_logger.info(f"New support request #{new_request.id} from {support_request.email}")
+        
+        return SupportRequestResponse(
+            success=True,
+            message="Thank you for your message. We'll get back to you soon!",
+            request_id=new_request.id
+        )
+    
+    except HTTPException:
+        # Re-raise HTTP exceptions (rate limit, origin check)
+        raise
+    
+    except Exception as e:
+        visit_logger.error(f"Error creating support request from {client_ip}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to submit your request. Please try again later."
+        )
+
     
