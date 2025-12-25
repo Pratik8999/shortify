@@ -116,11 +116,11 @@ class AppVisitAdmin(ModelView, model=AppVisit):
     icon = "fa-solid fa-chart-line"
     
     column_list = [AppVisit.id, AppVisit.ip_address, AppVisit.country, AppVisit.city, 
-                   AppVisit.device, AppVisit.browser, AppVisit.os, AppVisit.createdon]
+                   AppVisit.device, AppVisit.browser, AppVisit.os, AppVisit.count, AppVisit.createdon]
     column_searchable_list = [AppVisit.ip_address, AppVisit.country, AppVisit.city, 
                              AppVisit.region, AppVisit.org, AppVisit.device, AppVisit.browser, AppVisit.os]
     column_sortable_list = [AppVisit.id, AppVisit.country, AppVisit.city, 
-                           AppVisit.createdon, AppVisit.updatedon]
+                           AppVisit.count, AppVisit.createdon, AppVisit.updatedon]
     column_default_sort = [(AppVisit.createdon, True)]  # Sort by newest first
     
     # Show all details in the detail view
@@ -138,6 +138,7 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         AppVisit.device,
         AppVisit.browser,
         AppVisit.os,
+        AppVisit.count,
         AppVisit.createdon,
         AppVisit.updatedon
     ]
@@ -166,6 +167,7 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         "device": "Device",
         "browser": "Browser",
         "os": "Operating System",
+        "count": "Visit Count",
         "createdon": "First Visit",
         "updatedon": "Last Updated"
     }
@@ -219,6 +221,10 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         "os": {
             "label": "Operating System",
             "description": "Operating system of the visitor"
+        },
+        "count": {
+            "label": "Visit Count",
+            "description": "Number of times this IP has visited"
         }
     }
     
