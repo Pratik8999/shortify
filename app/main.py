@@ -6,6 +6,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import json
 from app.auth.routers import auth_router
+from app.auth.dependencies import get_client_ip
 from app.url.routers import url_router
 from app.visit.routers import visit_router
 from app.database import get_db,engine
@@ -104,10 +105,11 @@ admin.add_view(SupportRequestAdmin)
 def redirect_response(url_code: str, request: Request, background_tasks: BackgroundTasks,
                      db: Session = Depends(get_db)):
 
-    ip = request.client.host
+    ip = get_client_ip(request)
     referrer = request.headers.get("referer")
     user_agent = request.headers.get("user-agent")
 
+    # main_logger.info(f"Refferer: {referrer}, User-Agent: {user_agent}")
     # First check in redis for the url code, if found return the url from redis cache
     redis_client = get_redis_client()
 
