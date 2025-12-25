@@ -10,6 +10,18 @@ class UrlCreate(BaseModel):
     url: HttpUrl
 
 
+class UrlUpdate(BaseModel):
+    url_id: int
+    title: Optional[str] = None
+    
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v):
+        if v is not None and len(v) > 20:
+            raise ValueError("Title cannot exceed 20 characters")
+        return v.strip() if v else None
+
+
 class UrlCreationResponse(BaseModel):
     short_code: str
     message: str
@@ -20,6 +32,8 @@ class UrlListingResponse(BaseModel):
     url: HttpUrl
     code: str
     createdon: int
+    title:str
+    title: Optional[str] = None
 
 
     @field_validator("createdon", mode="before")

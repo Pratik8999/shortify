@@ -1,5 +1,5 @@
 from sqladmin import ModelView
-from app.models import User, Url, UrlAnalytics, AppVisit
+from app.models import User, Url, UrlAnalytics, AppVisit, SupportRequest
 from app.auth.hashing import hash_password
 from wtforms import PasswordField, StringField
 from wtforms.validators import DataRequired, Length, Optional as OptionalValidator
@@ -116,9 +116,9 @@ class AppVisitAdmin(ModelView, model=AppVisit):
     icon = "fa-solid fa-chart-line"
     
     column_list = [AppVisit.id, AppVisit.ip_address, AppVisit.country, AppVisit.city, 
-                   AppVisit.region, AppVisit.timezone, AppVisit.org, AppVisit.createdon, AppVisit.updatedon]
+                   AppVisit.device, AppVisit.browser, AppVisit.os, AppVisit.createdon]
     column_searchable_list = [AppVisit.ip_address, AppVisit.country, AppVisit.city, 
-                             AppVisit.region, AppVisit.org, AppVisit.postal]
+                             AppVisit.region, AppVisit.org, AppVisit.device, AppVisit.browser, AppVisit.os]
     column_sortable_list = [AppVisit.id, AppVisit.country, AppVisit.city, 
                            AppVisit.createdon, AppVisit.updatedon]
     column_default_sort = [(AppVisit.createdon, True)]  # Sort by newest first
@@ -135,6 +135,9 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         AppVisit.timezone,
         AppVisit.org,
         AppVisit.postal,
+        AppVisit.device,
+        AppVisit.browser,
+        AppVisit.os,
         AppVisit.createdon,
         AppVisit.updatedon
     ]
@@ -160,6 +163,9 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         "timezone": "Timezone",
         "org": "ISP/Organization",
         "postal": "Postal Code",
+        "device": "Device",
+        "browser": "Browser",
+        "os": "Operating System",
         "createdon": "First Visit",
         "updatedon": "Last Updated"
     }
@@ -201,6 +207,18 @@ class AppVisitAdmin(ModelView, model=AppVisit):
         "postal": {
             "label": "Postal Code",
             "description": "Visitor's postal/zip code"
+        },
+        "device": {
+            "label": "Device",
+            "description": "Device type (Desktop, Mobile, Tablet, etc.)"
+        },
+        "browser": {
+            "label": "Browser",
+            "description": "Web browser used"
+        },
+        "os": {
+            "label": "Operating System",
+            "description": "Operating system of the visitor"
         }
     }
     
@@ -214,4 +232,86 @@ class AppVisitAdmin(ModelView, model=AppVisit):
     can_delete = True
     can_view_details = True
 
+
+class SupportRequestAdmin(ModelView, model=SupportRequest):
+    name = "Support Requests"
+    name_plural = "Support Requests"
+    icon = "fa-solid fa-envelope"
     
+    column_list = [
+        SupportRequest.id,
+        SupportRequest.name,
+        SupportRequest.email,
+        SupportRequest.status,
+        SupportRequest.ip_address,
+        SupportRequest.createdon
+    ]
+    
+    column_searchable_list = [SupportRequest.email, SupportRequest.name, SupportRequest.message]
+    column_sortable_list = [SupportRequest.id, SupportRequest.createdon, SupportRequest.status]
+    column_default_sort = [(SupportRequest.createdon, True)]  # Newest first
+    
+    # Details view
+    column_details_list = [
+        SupportRequest.id,
+        SupportRequest.name,
+        SupportRequest.email,
+        SupportRequest.message,
+        SupportRequest.status,
+        SupportRequest.ip_address,
+        SupportRequest.admin_notes,
+        SupportRequest.createdon,
+        SupportRequest.updatedon
+    ]
+    
+    form_excluded_columns = [SupportRequest.createdon, SupportRequest.updatedon]
+    
+    # Form configuration
+    form_args = {
+        "name": {
+            "label": "Name",
+            "description": "Name of the person who submitted the request"
+        },
+        "email": {
+            "label": "Email",
+            "description": "Email address for contact"
+        },
+        "message": {
+            "label": "Message/Query",
+            "description": "The support request message"
+        },
+        "status": {
+            "label": "Status",
+            "description": "Current status: pending, reviewed, or resolved"
+        },
+        "ip_address": {
+            "label": "IP Address",
+            "description": "IP address of the requester"
+        },
+        "admin_notes": {
+            "label": "Admin Notes",
+            "description": "Internal notes for admins (not visible to user)"
+        }
+    }
+    
+    # Column formatters for better display
+    column_formatters = {
+        SupportRequest.message: lambda m, a: (m.message[:50] + "...") if len(m.message) > 50 else m.message
+    }
+    
+    column_labels = {
+        SupportRequest.id: "ID",
+        SupportRequest.createdon: "Submitted At",
+        SupportRequest.updatedon: "Last Updated",
+        SupportRequest.ip_address: "IP Address"
+    }
+    
+    # Enable pagination
+    page_size = 50
+    page_size_options = [25, 50, 100, 200]
+    
+    # Permissions
+    can_create = False  # Don't allow manual creation via admin
+    can_edit = True     # Allow status updates and admin notes
+    can_delete = True
+    can_view_details = True

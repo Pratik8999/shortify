@@ -9,7 +9,7 @@ from app.auth.routers import auth_router
 from app.url.routers import url_router
 from app.visit.routers import visit_router
 from app.database import get_db,engine
-from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin
+from app.admin.views import UserAdmin, UrlAdmin, UrlAnalyticsAdmin, AppVisitAdmin, SupportRequestAdmin
 from app.admin.auth import AdminAuth, get_secret_key
 from app.models import Url
 from app.url.url_utils import add_url_analytics, async_cache_fill
@@ -19,9 +19,13 @@ from dotenv import load_dotenv
 from os import getenv
 from sqladmin import Admin
 import secrets
+from app.logging_config import configure_logging, main_logger
 
 # Load environment variables
 load_dotenv()
+
+# Initialize logging system
+configure_logging()
 
 app = FastAPI(
     root_path="",
@@ -36,7 +40,7 @@ secret_key = getenv("ADMIN_SECRET_KEY", get_secret_key())
 if secret_key == "your-secret-key-here-change-in-production-min-32-chars":
     # Generate a random secret key if not provided in environment
     secret_key = secrets.token_urlsafe(32)
-    print("⚠️  WARNING: Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
+    main_logger.warning("Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
 
 # Add session middleware for admin authentication
 app.add_middleware(
@@ -92,6 +96,7 @@ admin.add_view(UserAdmin)
 admin.add_view(UrlAdmin)
 admin.add_view(UrlAnalyticsAdmin)
 admin.add_view(AppVisitAdmin)
+admin.add_view(SupportRequestAdmin)
 
 
 # Root level redirect endpoint for URL shortener
@@ -109,7 +114,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
     cached_url = redis_client.get(url_code)
 
     if cached_url:
-        print(f"[CACHE HIT] url_code={url_code} → {cached_url}")
+        # main_logger.info(f"Cache hit for url_code={url_code}")
 
         background_tasks.add_task(
             add_url_analytics,
@@ -121,7 +126,7 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
         return RedirectResponse(cached_url, status_code=307)
     
     else:
-        print(f"[CACHE MISS] url_code={url_code}")
+        # main_logger.info(f"Cache miss for url_code={url_code}")
         
         # Check if the incoming url code exists in the database
         url = db.query(Url.url, Url.code).filter(Url.code == url_code).first()

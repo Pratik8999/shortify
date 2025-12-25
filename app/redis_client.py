@@ -1,6 +1,7 @@
 import redis
 import os
 from functools import lru_cache
+import logging
 
 
 @lru_cache()
@@ -41,5 +42,6 @@ def check_redis_connection() -> bool:
         response = client.ping()
         return response is True
     except Exception as e:
-        print(f"Redis connection failed: {e}")
+        logger = logging.getLogger("app.main")
+        logger.error(f"Redis connection failed: {str(e)}", exc_info=True)
         return False

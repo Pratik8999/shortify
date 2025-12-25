@@ -10,6 +10,7 @@ from app.redis_client import get_redis_client
 from sqlalchemy import func
 from urllib.parse import urlparse
 from datetime import datetime, timezone
+from app.logging_config import url_logger
 
 
 hash = Hashids(min_length=8, salt=getenv("SALT"))
@@ -207,7 +208,7 @@ def add_url_analytics(
 def async_cache_fill(code: str, original_url: str):
     redis_client = get_redis_client()
     redis_client.set(code, original_url,ex=60*60*48)  # Cache for 48 hours
-    print(f"[CACHE FILLED] {code} → {original_url}")
+    url_logger.info(f"Cache filled for {code}")
 
 
 def update_analytics_cache(url_id: int, user_id: int, country: str, device: str, source_category: str, is_bot: bool):
@@ -261,7 +262,7 @@ def update_analytics_cache(url_id: int, user_id: int, country: str, device: str,
         
         return True
     except Exception as e:
-        print(f"[REDIS ERROR] Analytics cache update failed: {e}")
+        url_logger.error(f"Analytics cache update failed: {str(e)}", exc_info=True)
         return False
 
 
@@ -271,10 +272,10 @@ def invalidate_cache(url_codes: list[str]):
         redis_client = get_redis_client()
         if url_codes:
             deleted_keys = redis_client.delete(*url_codes)
-            print(f"[CACHE INVALIDATED] Removed {deleted_keys} keys from cache")
+            url_logger.info(f"Cache invalidated: removed {deleted_keys} keys")
         return True
     except Exception as e:
-        print(f"[CACHE INVALIDATION ERROR] {str(e)}")
+        url_logger.error(f"Cache invalidation error: {str(e)}", exc_info=True)
         return False
 
 
@@ -302,7 +303,7 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
             
             # If Redis is empty, then fallback to DB query
             if not countries and not devices and not sources:
-                print(f"[REDIS MISS] Analytics cache miss for URL ID {url.id}")
+                url_logger.info(f"Analytics cache miss for URL ID {url.id}")
                 TTL_SECONDS = 5 * 60 * 60  # 5 hours
                 
                 # Query from DB and populate Redis
@@ -356,7 +357,7 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
                 sources = redis_client.hgetall(f"analytics:url:{url.id}:sources")
                 cached_clicks = redis_client.get(f"analytics:url:{url.id}:total_clicks")
             
-            print(f"[REDIS HIT] Analytics cache hit for URL ID {url.id}")
+            url_logger.info(f"Analytics cache hit for URL ID {url.id}")
             
             # Use cached click count if available, otherwise fallback to DB
             total_clicks = int(cached_clicks) if cached_clicks else url.click_count
@@ -405,7 +406,7 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
         return result
     
     except Exception as e:
-        print(f"[ERROR] get_top_performing_urls: {e}")
+        url_logger.error(f"get_top_performing_urls error: {str(e)}", exc_info=True)
         return []
 
 
@@ -424,7 +425,7 @@ def get_global_analytics(db: Session, user_id: int):
         
         # If cache is empty, rebuild from database
         if not countries and not devices and not sources:
-            print("[REDIS MISS] Global analytics cache miss, rebuilding from DB")
+            url_logger.info("Global analytics cache miss, rebuilding from DB")
             TTL_SECONDS = 5 * 60 * 60  # 5 hours
             
             # Query all analytics for this user's URLs (excluding bots)
@@ -494,7 +495,7 @@ def get_global_analytics(db: Session, user_id: int):
             total_clicks = redis_client.get(f"analytics:user:{user_id}:global:total_clicks")
             this_month_clicks = redis_client.get(f"analytics:user:{user_id}:global:month:{current_month}")
         
-        print("[REDIS HIT] Global analytics cache hit")
+        url_logger.info("Global analytics cache hit")
         
         # Get total URLs count (always from DB as it's fast)
         total_urls = db.query(Url).filter(Url.user == user_id).count()
@@ -546,7 +547,7 @@ def get_global_analytics(db: Session, user_id: int):
         }
     
     except Exception as e:
-        print(f"[ERROR] get_global_analytics: {e}")
+        url_logger.error(f"get_global_analytics error: {str(e)}", exc_info=True)
         return {
             "summary": {"total_urls": 0, "total_clicks": 0, "this_month_clicks": 0},
             "countries": [],
