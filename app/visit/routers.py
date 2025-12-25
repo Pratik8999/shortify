@@ -36,64 +36,75 @@ def get_ip_info(ip: str) -> dict:
 async def track_visit(request: Request, db: Session = Depends(get_db)):
     """
     Track application visits by IP address.
+    If IP exists, update the updatedon timestamp. If new, create a record.
     """
     # Get client IP address
     client_ip = get_client_ip(request)
     
-    # Get user agent from request headers
-    user_agent = request.headers.get("user-agent")
-    
-    # Parse device, browser, and OS from user agent
-    device_type = None
-    browser_name = None
-    os_name = None
-    
-    if user_agent:
-        parsed = user_agent_parser.Parse(user_agent)
+    try:
+        # Check if IP already exists (optimized query with index on ip_address)
+        existing_visit = db.query(AppVisit).filter(AppVisit.ip_address == client_ip).first()
         
-        # Extract browser
-        browser_family = parsed.get('user_agent', {}).get('family')
-        browser_name = browser_family if browser_family != 'Other' else None
+        if existing_visit:
+            # IP exists - increment visit count and update timestamp
+            existing_visit.count += 1
+            existing_visit.updatedon = existing_visit.updatedon  # Trigger the onupdate
+            db.commit()
+            return {}
         
-        # Extract OS
-        os_family = parsed.get('os', {}).get('family')
-        os_name = os_family if os_family != 'Other' else None
+        # New visitor - parse user agent and fetch IP info
+        user_agent = request.headers.get("user-agent")
         
-        # Extract and categorize device
-        device_family = parsed.get('device', {}).get('family')
-        ua_lower = user_agent.lower()
+        # Parse device, browser, and OS from user agent
+        device_type = None
+        browser_name = None
+        os_name = None
         
-        # Categorize device type
-        if device_family == 'Spider':
-            device_type = 'Spider'
-        elif device_family in ['iPhone', 'iPad']:
-            device_type = device_family
-        elif os_family in ['iOS', 'Android', 'Windows Phone', 'BlackBerry OS']:
-            if 'tablet' in ua_lower or 'ipad' in ua_lower:
+        if user_agent:
+            parsed = user_agent_parser.Parse(user_agent)
+            
+            # Extract browser
+            browser_family = parsed.get('user_agent', {}).get('family')
+            browser_name = browser_family if browser_family != 'Other' else None
+            
+            # Extract OS
+            os_family = parsed.get('os', {}).get('family')
+            os_name = os_family if os_family != 'Other' else None
+            
+            # Extract and categorize device
+            device_family = parsed.get('device', {}).get('family')
+            ua_lower = user_agent.lower()
+            
+            # Categorize device type
+            if device_family == 'Spider':
+                device_type = 'Spider'
+            elif device_family in ['iPhone', 'iPad']:
+                device_type = device_family
+            elif os_family in ['iOS', 'Android', 'Windows Phone', 'BlackBerry OS']:
+                if 'tablet' in ua_lower or 'ipad' in ua_lower:
+                    device_type = 'Tablet'
+                else:
+                    device_type = 'Mobile'
+            elif os_family in ['Windows', 'Mac OS X', 'Linux', 'Ubuntu', 'Chrome OS']:
+                device_type = 'Desktop'
+            elif 'mobile' in ua_lower or 'android' in ua_lower:
+                device_type = 'Mobile'
+            elif 'tablet' in ua_lower:
                 device_type = 'Tablet'
             else:
-                device_type = 'Mobile'
-        elif os_family in ['Windows', 'Mac OS X', 'Linux', 'Ubuntu', 'Chrome OS']:
-            device_type = 'Desktop'
-        elif 'mobile' in ua_lower or 'android' in ua_lower:
-            device_type = 'Mobile'
-        elif 'tablet' in ua_lower:
-            device_type = 'Tablet'
-        else:
-            device_type = 'Unknown'
-    
-    # New visitor - fetch IP info
-    ip_info = get_ip_info(client_ip)
-    
-    # Extract location data if available
-    loc = ip_info.get('loc', ',').split(',')
-    latitude = loc[0] if len(loc) > 0 else None
-    longitude = loc[1] if len(loc) > 1 else None
-    
-    country_code = ip_info.get('country')
-    country_name = get_country_name(country_code) if country_code else None
-    
-    try:
+                device_type = 'Unknown'
+        
+        # Fetch IP info for new visitor
+        ip_info = get_ip_info(client_ip)
+        
+        # Extract location data if available
+        loc = ip_info.get('loc', ',').split(',')
+        latitude = loc[0] if len(loc) > 0 else None
+        longitude = loc[1] if len(loc) > 1 else None
+        
+        country_code = ip_info.get('country')
+        country_name = get_country_name(country_code) if country_code else None
+        
         # Create new visit record
         new_visit = AppVisit(
             ip_address=client_ip,
