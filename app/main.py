@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, Response, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -24,24 +25,23 @@ from app.logging_config import configure_logging, main_logger
 
 # Load environment variables
 load_dotenv()
-
 # Initialize logging system
 configure_logging()
+
+# Initialize Jinja2 templates
+templates = Jinja2Templates(directory="app/templates")
 
 app = FastAPI(
     root_path="",
     # Trust proxy headers for correct scheme detection
     servers=[
         {"url": "https://shrtfy.in", "description": "Production server"},
-    ]
+    ],
+    debug=False if getenv("DEBUG", "False") == "False" else True
 )
 
 # Get or generate secret key for sessions
 secret_key = getenv("ADMIN_SECRET_KEY", get_secret_key())
-if secret_key == "your-secret-key-here-change-in-production-min-32-chars":
-    # Generate a random secret key if not provided in environment
-    secret_key = secrets.token_urlsafe(32)
-    main_logger.warning("Using auto-generated secret key. Set ADMIN_SECRET_KEY in .env for production!")
 
 # Add session middleware for admin authentication
 app.add_middleware(
@@ -126,12 +126,16 @@ def redirect_response(url_code: str, request: Request, background_tasks: Backgro
             user_agent=user_agent,
         )
         return RedirectResponse(cached_url, status_code=307)
-    
     else:
-        # main_logger.info(f"Cache miss for url_code={url_code}")
-        
         # Check if the incoming url code exists in the database
         url = db.query(Url.url, Url.code).filter(Url.code == url_code).first()
+
+        if not url:
+            return templates.TemplateResponse(
+                "404.html",
+                {"request": request, "url_code": url_code},
+                status_code=404
+            )
 
         if not url:
             return Response(content=json.dumps({"message": "URL not found."}), media_type="application/json", status_code=404)
