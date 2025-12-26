@@ -11,15 +11,14 @@ A modern, fast, and scalable URL shortening service with analytics. Built with F
 - **Redis Caching** - Lightning-fast redirects with intelligent caching
 - **Admin Panel** - Built-in admin interface powered by SQLAdmin
 - **Visit Tracking** - Monitor application traffic with geo-location data
-- **Bulk Operations** - Delete multiple URLs efficiently
 - **IP-based Geolocation** - Track user locations with ipinfo.io integration
 
 ## 🛠️ Tech Stack
 
 **Backend**
-- FastAPI - High-performance async web framework
+- FastAPI - High-performance async Python web framework
 - PostgreSQL - Reliable relational database
-- Redis - In-memory caching for fast redirects
+- Redis - In-memory caching for fast redirects and efficient analytics management
 - SQLAlchemy - Robust ORM with Alembic migrations
 - JWT - Secure token-based authentication
 

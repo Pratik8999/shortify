@@ -1,7 +1,7 @@
 version: "3.9"
 
 services:
-  # Backend reverse proxy (FastAPI gateway)
+  # Reverse proxy (A main gateway for routing requests)
   nginx:
     image: nginx:latest
     container_name: nginx_gateway
