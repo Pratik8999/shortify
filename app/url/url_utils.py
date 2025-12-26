@@ -394,8 +394,10 @@ def get_top_performing_urls(db: Session, user_id: int, limit: int = 5):
             sources_data.sort(key=lambda x: x['count'], reverse=True)
             
             result.append({
+                "id": url.id,
                 "url": url.url,
                 "code": url.code,
+                "title": url.title,
                 "total_clicks": url.click_count,
                 "created_at": int(url.createdon.timestamp()),
                 "countries": countries_data[:3],  # Top 3

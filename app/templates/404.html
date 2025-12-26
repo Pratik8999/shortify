@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Short URL Not Found | Shrtfy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(to bottom right, #dbeafe, #ffffff, #faf5ff);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 42rem;
+        }
+        
+        /* 404 Number with gradient */
+        .error-code-wrapper {
+            margin-bottom: 2rem;
+        }
+        
+        .error-code {
+            font-size: 150px;
+            font-weight: 700;
+            line-height: 1;
+            background: linear-gradient(to right, #2563eb, #9333ea);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Message */
+        .error-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+        
+        .error-message {
+            font-size: 1.125rem;
+            color: #4b5563;
+            margin-bottom: 1.5rem;
+            max-width: 28rem;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .short-code {
+            background: #f3f4f6;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 1.125rem;
+            color: #1f2937;
+            margin: 1.5rem auto;
+            border: 2px dashed #d1d5db;
+            display: inline-block;
+        }
+        
+        /* Button */
+        .button-wrapper {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        
+        .btn-primary {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background: linear-gradient(to right, #2563eb, #9333ea);
+            color: white;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        
+        .btn-primary:hover {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        /* Help Links */
+        .help-section {
+            padding-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 2rem;
+        }
+        
+        .help-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .help-link {
+            color: #2563eb;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        
+        .help-link:hover {
+            color: #1e40af;
+            text-decoration: underline;
+        }
+        
+        @media (min-width: 768px) {
+            .error-code {
+                font-size: 200px;
+            }
+            
+            .error-title {
+                font-size: 2.25rem;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .error-code {
+                font-size: 100px;
+            }
+            
+            .error-title {
+                font-size: 1.5rem;
+            }
+            
+            .error-message {
+                font-size: 1rem;
+            }
+            
+            .short-code {
+                font-size: 1rem;
+                padding: 0.625rem 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 404 Number with gradient -->
+        <div class="error-code-wrapper">
+            <h1 class="error-code">404</h1>
+        </div>
+
+        <!-- Message -->
+        <h2 class="error-title">Page Not Found</h2>
+        <p class="error-message">
+            The short URL or a resource you're looking for doesn't exist or may have been removed.
+        </p>
+
+        <!-- Button -->
+        <div class="button-wrapper">
+            <a href="/" class="btn-primary">Go Home</a>
+        </div>
+
+        <!-- Help Links -->
+        <div class="help-section">
+            <div class="help-links">
+                <a href="/features" class="help-link">Features</a>
+                <a href="/help" class="help-link">Help Center</a>
+                <a href="/contact" class="help-link">Contact Us</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
