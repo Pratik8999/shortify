@@ -2,6 +2,8 @@
 
 A modern, fast, and scalable URL shortening service with analytics. Built with FastAPI and designed for easy deployment with Docker.
 
+🌐 **Live at** — [shortify.in](https://shortify.in)
+
 ## ✨ Features
 
 - **URL Shortening** - Generate short, shareable links instantly
