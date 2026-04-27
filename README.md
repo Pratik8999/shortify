@@ -2,7 +2,7 @@
 
 A modern, fast, and scalable URL shortening service with analytics. Built with FastAPI and designed for easy deployment with Docker.
 
-🌐 **Live at** — [shortify.in](https://shortify.in)
+[![Live ](https://img.shields.io/badge/🌐%20Live%20at-shrtfy.in-6366f1?style=for-the-badge&labelColor=1e1e2e)](https://shrtfy.in)
 
 ## ✨ Features
 
